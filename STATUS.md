@@ -1,40 +1,31 @@
-# BlueCraft status
+# BlueCraft release status
 
-The playable Linux development package is [dist/bluecraft](dist/bluecraft)
-(about 3.8 MiB). Run `./dist/bluecraft` from this directory, or launch the
-executable by its full path from another working directory.
+[BlueCraft 0.1.0 is published](https://github.com/kevstermcgee/BlueCraft/releases/tag/v0.1.0)
+as a Windows x64 EXE installer. Its download page and complete game guide are at
+https://kevstermcgee.github.io/BlueEngineGames/games/bluecraft/.
 
-BlueCraft includes a seeded voxel world, first-person movement and jumping,
-block mining and placement, nine materials, target highlighting, a hotbar,
-help/pause menus and engine-owned save states. Normal play resumes automatic
-progress and saves every 15 seconds and on clean exit. F5/F9 use a separate
-manual checkpoint. `--fresh` and `--seed N` keep automatic progress untouched.
+The release was built from game source `9d1294c5dd39af3fecddcd3b2f2b5220722d1dd2`
+and BlueEngine `e7ba8467fe9043527579fc8fac3de7818dddea3a`.
+The published installer is 3,175,937 bytes with SHA-256
+`ecd0736331e6a6f8b748bc8a2a9e3302cd48675e31e1e8aaf2da6f08e14fdb49`.
+The public download was retrieved anonymously and its exact bytes verified.
 
-The pinned engine is upstream revision
-`e7ba8467fe9043527579fc8fac3de7818dddea3a`, fetched October 19, 2026. Linux is
-declared for local development/package checks; Windows is the release target.
+[Windows verification run](https://github.com/kevstermcgee/BlueCraft/actions/runs/39300126196)
+passed formatting, all 22 game tests, Clippy, content checks, executable resources,
+and isolated declared-file package smoke. The exact installer passed installation,
+upgrade, shortcut target and working-directory checks, save/settings retention,
+and uninstallation. Both Windows smoke captures were visually inspected.
+Checksums and build provenance accompany the public release.
 
-Completed evidence:
+Linux development checks also passed: the game tests and Clippy, full project
+checks, release package hashes and isolated launch. X11 input events exercised
+movement, mouse look, jump, material selection, mining, placement, manual save/load,
+help and pause/resume. A separate run of the release executable verified periodic
+autosave, save on clean exit and automatic continuation of position and selection.
 
-- All 22 tests passed: 12 rules tests, eight determinism/snapshot tests, one
-  identity test and one mesh-winding test.
-- Headless and client all-target Clippy checks passed.
-- `scripts/blue ship --no-install` passed Linux identity/icon, asset closure,
-  package hash and isolated declared-file launch checks. The package includes
-  BlueCraft's own icons. [dist/ship.json](dist/ship.json) records its SHA-256
-  file inventory and shipping evidence.
-- The isolated smoke captures at
-  [.blue-check/smoke-20261019T085510192036](.blue-check/smoke-20261019T085510192036)
-  (frames 30 and 90) were visually inspected.
-- X11 XTest events exercised the native keyboard/mouse path without scripted
-  gameplay input. The
-  [input report](.blue-check/real-device-input-v3.json) records 24 movement frames,
-  mouse look, jump, selection, one mined block, one placed block, one successful
-  F5 save and one successful F9 load. Captures also checked help and a paused
-  simulation tick.
+The published guide has three distinct, visually inspected gameplay captures,
+verified controls, actual sandbox rules and the original creation request.
+There are no visible player models or NPCs in this first-person sandbox.
 
-Windows executable resources, native package launch and the x64 Inno Setup
-installer remain unverified and require a Windows host. Physical keyboard/mouse,
-hardware graphics and human-audible output have not been verified. XTest events
-and software captures provide native input/rendering evidence only. Review
-criteria are declared in [assets/native-review.json](assets/native-review.json).
+Hardware graphics, physical input devices and human-audible output remain outside
+these automated checks. Review criteria are in `assets/native-review.json`.
