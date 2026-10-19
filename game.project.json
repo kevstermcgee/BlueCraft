@@ -1,0 +1,18 @@
+{
+  "complexity": "low",
+  "description": "A small first-person voxel sandbox. Explore a block world, break blocks, and build with a nine-block creative palette.",
+  "id": "bluecraft",
+  "input": [
+    "keyboard",
+    "mouse"
+  ],
+  "networking": "offline",
+  "presentation": "3d",
+  "runtime": "legacy-native",
+  "schema_version": 1,
+  "session_minutes": 10,
+  "targets": [
+    "linux",
+    "windows"
+  ]
+}

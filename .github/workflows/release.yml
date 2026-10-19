@@ -1,0 +1,231 @@
+name: BlueCraft Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Cargo package version to build
+        type: string
+        required: true
+        default: '0.1.0'
+      publish:
+        description: Publish a new immutable release after every Windows gate passes
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bluecraft-windows-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  BLUECRAFT_ENGINE_REVISION: e7ba8467fe9043527579fc8fac3de7818dddea3a
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: bluecraft
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check out BlueCraft
+        uses: actions/checkout@v4
+        with:
+          path: bluecraft
+          persist-credentials: false
+
+      - name: Check out the exact BlueEngine dependency
+        uses: actions/checkout@v4
+        with:
+          repository: kevstermcgee/BlueEngine
+          ref: ${{ env.BLUECRAFT_ENGINE_REVISION }}
+          path: bluecraft-engine
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Validate release inputs and pinned engine
+        shell: python
+        run: |
+          import json, os, pathlib, re, subprocess, tomllib
+          version = os.environ['RELEASE_VERSION']
+          manifest = tomllib.loads(pathlib.Path('Cargo.toml').read_text(encoding='utf-8'))
+          if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', version):
+              raise SystemExit('Version must be a semantic release version')
+          if version != manifest['package']['version']:
+              raise SystemExit('Requested release version differs from Cargo.toml')
+          expected = os.environ['BLUECRAFT_ENGINE_REVISION']
+          actual = subprocess.check_output(['git', '-C', '../bluecraft-engine', 'rev-parse', 'HEAD'], text=True).strip()
+          pin = json.loads(pathlib.Path('scripts/tooling.json').read_text(encoding='utf-8'))
+          if actual != expected or not actual.startswith(pin['revision']):
+              raise SystemExit('Engine checkout differs from the reviewed tooling pin')
+          pathlib.Path('.blue-check').mkdir(exist_ok=True)
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bluecraft -> ../target
+          shared-key: bluecraft-windows
+
+      - name: Check formatting, game behavior and Clippy
+        shell: python
+        run: |
+          import pathlib, subprocess
+          commands = [
+              ('format', ['cargo', 'fmt', '--check']),
+              ('tests', ['cargo', 'test', '--locked']),
+              ('clippy', ['cargo', 'clippy', '--locked', '--all-targets', '--', '-D', 'warnings']),
+              ('content', ['python', 'scripts/check.py', '--content-only']),
+          ]
+          for label, command in commands:
+              result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+              pathlib.Path('.blue-check', 'windows-' + label + '.log').write_text(result.stdout, encoding='utf-8')
+              print(result.stdout, flush=True)
+              if result.returncode:
+                  raise SystemExit(result.returncode)
+
+      - name: Prepare pinned software OpenGL for isolated package smoke
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'bluecraft-mesa.7z'
+          $mesa = Join-Path $env:RUNNER_TEMP 'bluecraft-mesa'
+          Invoke-WebRequest 'https://github.com/pal1000/mesa-dist-win/releases/download/26.2.4/mesa3d-26.2.4-release-msvc.7z' -OutFile $archive
+          $expected = '351fc8c8b695878ffb3eaa044b3ead08672a48b1a045e3c3e3975811df0f6695'
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Mesa checksum mismatch' }
+          & 7z x $archive "-o$mesa" 'x64/*' -y
+          if ($LASTEXITCODE -ne 0) { throw 'Mesa extraction failed' }
+          $driver = Join-Path $mesa 'x64'
+          if (!(Test-Path (Join-Path $driver 'opengl32.dll'))) { throw 'Mesa OpenGL driver missing' }
+          "BE2_CI_OPENGL_DIR=$driver" >> $env:GITHUB_ENV
+
+      - name: Build and verify Windows resources and isolated packaged-game launch
+        shell: python
+        run: |
+          import ctypes, os, runpy, sys
+          kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+          setter = kernel.SetDllDirectoryW
+          setter.argtypes = [ctypes.c_wchar_p]
+          setter.restype = ctypes.c_int
+          if not setter(os.environ['BE2_CI_OPENGL_DIR']):
+              raise ctypes.WinError(ctypes.get_last_error())
+          os.environ.update(GALLIUM_DRIVER='llvmpipe', LIBGL_ALWAYS_SOFTWARE='1')
+          sys.argv = ['scripts/ship.py', 'ship', '--no-install']
+          try:
+              runpy.run_path(sys.argv[0], run_name='__main__')
+          finally:
+              if not setter(None):
+                  raise ctypes.WinError(ctypes.get_last_error())
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+
+      - name: Prepare, build and test the exact Windows installer
+        shell: python
+        run: |
+          import hashlib, json, os, pathlib, shutil, subprocess, sys
+          compiler = pathlib.Path(os.environ['ProgramFiles(x86)']) / 'Inno Setup 6' / 'ISCC.exe'
+          def run_ship(arguments, receipt):
+              result = subprocess.run([sys.executable, 'scripts/ship.py', 'installer', *arguments], capture_output=True, text=True)
+              pathlib.Path('.blue-check', receipt + '.stdout').write_text(result.stdout, encoding='utf-8')
+              pathlib.Path('.blue-check', receipt + '.stderr').write_text(result.stderr, encoding='utf-8')
+              print(result.stdout, flush=True)
+              print(result.stderr, file=sys.stderr, flush=True)
+              if result.returncode:
+                  raise SystemExit(result.returncode)
+              report = json.loads(result.stdout)
+              if report.get('ok') is not True:
+                  raise SystemExit('Installer command did not certify success')
+              pathlib.Path('.blue-check', receipt + '.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+              return report
+          run_ship(['prepare'], 'ci-installer-prepared')
+          built = run_ship(['build', '--iscc', str(compiler)], 'ci-installer-built')
+          tested = run_ship(['test', '--stage', built['stage']], 'ci-installer-tested')
+          artifact = pathlib.Path(built['installer'])
+          digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+          if digest != built['installer_sha256'] or digest != tested['installer_sha256']:
+              raise SystemExit('Built and tested installer hashes differ')
+          release = pathlib.Path('release')
+          release.mkdir(exist_ok=True)
+          shutil.copy2(artifact, release / artifact.name)
+          (release / 'SHA256SUMS.txt').write_text(digest + '  ' + artifact.name + '\n', encoding='ascii')
+          metadata = {
+              'name': 'BlueCraft', 'version': os.environ['RELEASE_VERSION'],
+              'source_repository': os.environ['GITHUB_REPOSITORY'],
+              'source_revision': os.environ['GITHUB_SHA'],
+              'engine_repository': 'kevstermcgee/BlueEngine',
+              'engine_revision': os.environ['BLUECRAFT_ENGINE_REVISION'],
+              'workflow_run': os.environ['GITHUB_SERVER_URL'] + '/' + os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID'],
+              'installer': artifact.name, 'installer_sha256': digest,
+              'windows_package_smoke': True, 'installer_install_upgrade_uninstall': True,
+              'physical_device_review': False,
+          }
+          (release / 'release-metadata.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
+
+      - name: Save package, installer and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bluecraft-windows-${{ inputs.version }}
+          path: |
+            bluecraft/release/
+            bluecraft/dist/
+            bluecraft/.blue-check/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: inputs.publish
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bluecraft-windows-${{ inputs.version }}
+          path: verified
+
+      - name: Publish a new release without replacing existing assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd verified/release
+          sha256sum --check SHA256SUMS.txt
+          tag="v${RELEASE_VERSION}"
+          python - <<'PY'
+          import json, pathlib
+          metadata = json.loads(pathlib.Path('release-metadata.json').read_text())
+          pathlib.Path('release-notes.md').write_text(
+              'BlueCraft is a small first-person creative voxel sandbox built with BlueEngine.\n\n'
+              'Download `bluecraft-setup-windows-x64.exe` and run it to install on Windows x64.\n\n'
+              'Controls: WASD move, mouse look, Space jump, left click mine, right click place, '
+              '1–9 choose blocks, F5 save, F9 load, E controls, Escape pause.\n\n'
+              'Windows game tests, executable resources, isolated package launch, and installer '
+              'install/upgrade/uninstall checks passed. Physical devices have not been reviewed.\n\n'
+              + 'Engine revision: `' + metadata['engine_revision'] + '`.\n\n'
+              + '[Windows verification run](' + metadata['workflow_run'] + ').\n', encoding='utf-8')
+          PY
+          # Creating a ref is atomic and fails if the tag already exists.
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f "ref=refs/tags/${tag}" -f "sha=${GITHUB_SHA}"
+          gh release create "$tag" bluecraft-setup-windows-x64.exe SHA256SUMS.txt release-metadata.json \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --title "BlueCraft ${RELEASE_VERSION}" \
+            --notes-file release-notes.md

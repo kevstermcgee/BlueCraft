@@ -1,0 +1,17 @@
+{
+  "title": "BlueCraft",
+  "tagline": "Build a little world.",
+  "controls": "WASD move, mouse look, Space jump, Shift sprint, left click break, right click place, wheel/1-9 select, middle click pick, F5/F9 save/load, E help, F fullscreen, Esc pause",
+  "smoke_args": [
+    "--capture",
+    "{dir}",
+    "--frames",
+    "30,90",
+    "--exit-after",
+    "100"
+  ],
+  "engine_revision": "e7ba8467fe90",
+  "package": [
+    "assets/licenses"
+  ]
+}

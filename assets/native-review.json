@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "checks": [
+    {
+      "id": "controls",
+      "area": "controls",
+      "instructions": "On a native keyboard and mouse, exercise WASD movement, Space jump, Shift sprint, mouse look, wheel and 1-9 selection, middle-click picking, E help, Escape pause/resume and F fullscreen. Check cursor capture and focus changes. Record the OS and actual input devices."
+    },
+    {
+      "id": "camera",
+      "area": "camera",
+      "instructions": "Confirm mouse right turns right and mouse up looks up. Walk and jump beside blocks; inspect camera height, collision, target outline and crosshair alignment. Check hotbar and help readability at the intended window sizes. Record the display and renderer."
+    },
+    {
+      "id": "block-interaction",
+      "area": "gameplay",
+      "instructions": "Break a targeted block with left click and place each palette material with right click. Check reach, adjacent-face placement, solid-block collision and protection against placing inside the player. Save with F5, change the world and position, then load with F9 and confirm the saved edits and player state return."
+    },
+    {
+      "id": "audio",
+      "area": "audio",
+      "instructions": "Listen to the game's action feedback on an actual audio output device. Exercise the sound settings and pause/resume; check that block interactions produce the intended feedback at a comfortable level and that muting works. Record the output device and what was heard; software captures or playback counters alone leave this check pending."
+    }
+  ]
+}

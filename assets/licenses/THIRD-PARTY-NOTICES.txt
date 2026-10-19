@@ -1,0 +1,383 @@
+BlueCraft third-party notices
+
+BlueCraft is built with BlueEngine and the dependencies below. License documents are retained in the named subdirectories. SPDX expressions and upstream project URLs are copied from locked Cargo package metadata.
+
+adler2 2.0.1
+License: 0BSD OR MIT OR Apache-2.0
+Source: https://github.com/oyvindln/adler2
+Documents: adler2-2.0.1/LICENSE-0BSD, adler2-2.0.1/LICENSE-APACHE, adler2-2.0.1/LICENSE-MIT
+
+allocator-api2 0.2.21
+License: MIT OR Apache-2.0
+Source: https://github.com/zakarumych/allocator-api2
+Documents: allocator-api2-0.2.21/LICENSE-APACHE, allocator-api2-0.2.21/LICENSE-MIT
+
+audrey 0.3.0
+License: MIT OR Apache-2.0
+Source: https://github.com/RustAudio/audrey.git
+Documents: audrey-0.3.0/LICENSE-APACHE, audrey-0.3.0/LICENSE-MIT
+
+autocfg 1.5.1
+License: Apache-2.0 OR MIT
+Source: https://github.com/cuviper/autocfg
+Documents: autocfg-1.5.1/LICENSE-APACHE, autocfg-1.5.1/LICENSE-MIT
+
+be2 0.2.0
+License: MIT
+Source:
+Documents: be2-0.2.0/LICENSE
+
+bitflags 1.3.2
+License: MIT/Apache-2.0
+Source: https://github.com/bitflags/bitflags
+Documents: bitflags-1.3.2/LICENSE-APACHE, bitflags-1.3.2/LICENSE-MIT
+
+bytemuck 1.25.2
+License: Zlib OR Apache-2.0 OR MIT
+Source: https://github.com/Lokathor/bytemuck
+Documents: bytemuck-1.25.2/LICENSE-APACHE, bytemuck-1.25.2/LICENSE-MIT, bytemuck-1.25.2/LICENSE-ZLIB
+
+byteorder 1.5.0
+License: Unlicense OR MIT
+Source: https://github.com/BurntSushi/byteorder
+Documents: byteorder-1.5.0/COPYING, byteorder-1.5.0/LICENSE-MIT
+
+cc 1.4.7
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-lang/cc-rs
+Documents: cc-1.4.7/LICENSE-APACHE, cc-1.4.7/LICENSE-MIT
+
+cfg-if 1.0.5
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-lang/cfg-if
+Documents: cfg-if-1.0.5/LICENSE-APACHE, cfg-if-1.0.5/LICENSE-MIT
+
+color_quant 1.1.0
+License: MIT
+Source: https://github.com/image-rs/color_quant.git
+Documents: color_quant-1.1.0/LICENSE
+
+core_maths 0.1.1
+License: MIT
+Source: https://github.com/robertbastian/core_maths
+Documents: core_maths-0.1.1/LICENSE
+
+crc32fast 1.5.2
+License: MIT OR Apache-2.0
+Source: https://github.com/srijs/rust-crc32fast
+Documents: crc32fast-1.5.2/LICENSE-APACHE, crc32fast-1.5.2/LICENSE-MIT
+
+dasp_frame 0.11.0
+License: MIT OR Apache-2.0
+Source: https://github.com/rustaudio/dasp.git
+Documents:
+
+dasp_sample 0.11.0
+License: MIT OR Apache-2.0
+Source: https://github.com/rustaudio/sample.git
+Documents:
+
+equivalent 1.0.2
+License: Apache-2.0 OR MIT
+Source: https://github.com/indexmap-rs/equivalent
+Documents: equivalent-1.0.2/LICENSE-APACHE, equivalent-1.0.2/LICENSE-MIT
+
+fdeflate 0.3.7
+License: MIT OR Apache-2.0
+Source: https://github.com/image-rs/fdeflate
+Documents: fdeflate-0.3.7/LICENSE-APACHE, fdeflate-0.3.7/LICENSE-MIT
+
+find-msvc-tools 0.1.13
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-lang/cc-rs
+Documents: find-msvc-tools-0.1.13/LICENSE-APACHE, find-msvc-tools-0.1.13/LICENSE-MIT
+
+flate2 1.1.10
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-lang/flate2-rs
+Documents: flate2-1.1.10/LICENSE-APACHE, flate2-1.1.10/LICENSE-MIT
+
+fnv 1.0.7
+License: Apache-2.0 / MIT
+Source: https://github.com/servo/rust-fnv
+Documents: fnv-1.0.7/LICENSE-APACHE, fnv-1.0.7/LICENSE-MIT
+
+foldhash 0.1.5
+License: Zlib
+Source: https://github.com/orlp/foldhash
+Documents: foldhash-0.1.5/LICENSE
+
+fontdue 0.9.4
+License: MIT OR Apache-2.0 OR Zlib
+Source: https://github.com/mooman219/fontdue
+Documents: fontdue-0.9.4/LICENSE-APACHE, fontdue-0.9.4/LICENSE-MIT, fontdue-0.9.4/LICENSE-ZLIB
+
+getrandom 0.2.17
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-random/getrandom
+Documents: getrandom-0.2.17/LICENSE-APACHE, getrandom-0.2.17/LICENSE-MIT
+
+getrandom 0.3.4
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-random/getrandom
+Documents: getrandom-0.3.4/LICENSE-APACHE, getrandom-0.3.4/LICENSE-MIT
+
+gilrs 0.11.2
+License: Apache-2.0/MIT
+Source: https://gitlab.com/gilrs-project/gilrs
+Documents: gilrs-0.11.2/README.md
+
+gilrs-core 0.6.8
+License: Apache-2.0/MIT
+Source: https://gitlab.com/gilrs-project/gilrs
+Documents: gilrs-core-0.6.8/README.md
+
+glam 0.27.0
+License: MIT OR Apache-2.0
+Source: https://github.com/bitshifter/glam-rs
+Documents: glam-0.27.0/LICENSE-APACHE, glam-0.27.0/LICENSE-MIT
+
+hashbrown 0.15.5
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-lang/hashbrown
+Documents: hashbrown-0.15.5/LICENSE-APACHE, hashbrown-0.15.5/LICENSE-MIT
+
+hound 3.5.1
+License: Apache-2.0
+Source: https://github.com/ruuda/hound
+Documents: hound-3.5.1/license
+
+image 0.24.9
+License: MIT OR Apache-2.0
+Source: https://github.com/image-rs/image
+Documents: image-0.24.9/LICENSE-APACHE, image-0.24.9/LICENSE-MIT
+
+itoa 1.0.18
+License: MIT OR Apache-2.0
+Source: https://github.com/dtolnay/itoa
+Documents: itoa-1.0.18/LICENSE-APACHE, itoa-1.0.18/LICENSE-MIT
+
+lewton 0.9.4
+License: MIT/Apache-2.0
+Source: https://github.com/RustAudio/lewton
+Documents: lewton-0.9.4/LICENSE
+
+libm 0.2.16
+License: MIT
+Source: https://github.com/rust-lang/compiler-builtins
+Documents: libm-0.2.16/LICENSE.txt
+
+log 0.4.34
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-lang/log
+Documents: log-0.4.34/LICENSE-APACHE, log-0.4.34/LICENSE-MIT
+
+macroquad 0.4.14
+License: MIT OR Apache-2.0
+Source: https://github.com/not-fl3/macroquad
+Documents: macroquad-0.4.14/LICENSE-APACHE, macroquad-0.4.14/LICENSE-MIT
+
+macroquad_macro 0.1.8
+License: MIT/Apache-2.0
+Source: https://github.com/not-fl3/macroquad
+Documents: macroquad_macro-0.1.8/LICENSE-APACHE, macroquad_macro-0.1.8/LICENSE-MIT
+
+maybe-uninit 2.0.0
+License: Apache-2.0 OR MIT
+Source: https://github.com/est31/maybe-uninit
+Documents: maybe-uninit-2.0.0/LICENSE-APACHE, maybe-uninit-2.0.0/LICENSE-MIT
+
+memchr 2.8.3
+License: Unlicense OR MIT
+Source: https://github.com/BurntSushi/memchr
+Documents: memchr-2.8.3/COPYING, memchr-2.8.3/LICENSE-MIT
+
+miniquad 0.4.8
+License: MIT OR Apache-2.0
+Source: https://github.com/not-fl3/miniquad
+Documents: miniquad-0.4.8/LICENSE-APACHE, miniquad-0.4.8/LICENSE-MIT
+
+miniz_oxide 0.8.9
+License: MIT OR Zlib OR Apache-2.0
+Source: https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
+Documents: miniz_oxide-0.8.9/LICENSE, miniz_oxide-0.8.9/LICENSE-APACHE.md, miniz_oxide-0.8.9/LICENSE-MIT.md, miniz_oxide-0.8.9/LICENSE-ZLIB.md
+
+miniz_oxide 0.9.1
+License: MIT OR Zlib OR Apache-2.0
+Source: https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
+Documents: miniz_oxide-0.9.1/LICENSE, miniz_oxide-0.9.1/LICENSE-APACHE.md, miniz_oxide-0.9.1/LICENSE-MIT.md, miniz_oxide-0.9.1/LICENSE-ZLIB.md
+
+num-traits 0.2.19
+License: MIT OR Apache-2.0
+Source: https://github.com/rust-num/num-traits
+Documents: num-traits-0.2.19/LICENSE-APACHE, num-traits-0.2.19/LICENSE-MIT
+
+ogg 0.7.1
+License: BSD-3-Clause
+Source: https://github.com/RustAudio/ogg
+Documents: ogg-0.7.1/LICENSE
+
+png 0.17.16
+License: MIT OR Apache-2.0
+Source: https://github.com/image-rs/image-png
+Documents: png-0.17.16/LICENSE-APACHE, png-0.17.16/LICENSE-MIT
+
+proc-macro2 1.0.107
+License: MIT OR Apache-2.0
+Source: https://github.com/dtolnay/proc-macro2
+Documents: proc-macro2-1.0.107/LICENSE-APACHE, proc-macro2-1.0.107/LICENSE-MIT
+
+quad-rand 0.2.3
+License: MIT
+Source: https://github.com/not-fl3/quad-rand
+Documents: quad-rand-0.2.3/README.md
+
+quad-snd 0.2.8
+License: MIT/Apache-2.0
+Source:
+Documents: quad-snd-0.2.8/README.md
+
+quote 1.0.47
+License: MIT OR Apache-2.0
+Source: https://github.com/dtolnay/quote
+Documents: quote-1.0.47/LICENSE-APACHE, quote-1.0.47/LICENSE-MIT
+
+ring 0.17.14
+License: Apache-2.0 AND ISC
+Source: https://github.com/briansmith/ring
+Documents: ring-0.17.14/LICENSE, ring-0.17.14/LICENSE-BoringSSL, ring-0.17.14/LICENSE-other-bits
+
+ryu 1.0.23
+License: Apache-2.0 OR BSL-1.0
+Source: https://github.com/dtolnay/ryu
+Documents: ryu-1.0.23/LICENSE-APACHE, ryu-1.0.23/LICENSE-BOOST
+
+serde 1.0.219
+License: MIT OR Apache-2.0
+Source: https://github.com/serde-rs/serde
+Documents: serde-1.0.219/LICENSE-APACHE, serde-1.0.219/LICENSE-MIT
+
+serde_derive 1.0.219
+License: MIT OR Apache-2.0
+Source: https://github.com/serde-rs/serde
+Documents: serde_derive-1.0.219/LICENSE-APACHE, serde_derive-1.0.219/LICENSE-MIT
+
+serde_json 1.0.140
+License: MIT OR Apache-2.0
+Source: https://github.com/serde-rs/json
+Documents: serde_json-1.0.140/LICENSE-APACHE, serde_json-1.0.140/LICENSE-MIT
+
+shlex 2.0.1
+License: MIT OR Apache-2.0
+Source: https://github.com/comex/rust-shlex
+Documents: shlex-2.0.1/LICENSE-APACHE, shlex-2.0.1/LICENSE-MIT
+
+simd-adler32 0.3.10
+License: MIT
+Source: https://github.com/mcountryman/simd-adler32
+Documents: simd-adler32-0.3.10/LICENSE.md
+
+smallvec 0.6.14
+License: MIT/Apache-2.0
+Source: https://github.com/servo/rust-smallvec
+Documents: smallvec-0.6.14/LICENSE-APACHE, smallvec-0.6.14/LICENSE-MIT
+
+syn 2.0.101
+License: MIT OR Apache-2.0
+Source: https://github.com/dtolnay/syn
+Documents: syn-2.0.101/LICENSE-APACHE, syn-2.0.101/LICENSE-MIT
+
+ttf-parser 0.25.1
+License: MIT OR Apache-2.0
+Source: https://github.com/harfbuzz/ttf-parser
+Documents: ttf-parser-0.25.1/LICENSE-APACHE, ttf-parser-0.25.1/LICENSE-MIT
+
+unicode-ident 1.0.26
+License: (MIT OR Apache-2.0) AND Unicode-3.0
+Source: https://github.com/dtolnay/unicode-ident
+Documents: unicode-ident-1.0.26/LICENSE-APACHE, unicode-ident-1.0.26/LICENSE-MIT, unicode-ident-1.0.26/LICENSE-UNICODE
+
+untrusted 0.9.0
+License: ISC
+Source: https://github.com/briansmith/untrusted
+Documents: untrusted-0.9.0/LICENSE.txt
+
+uuid 1.26.1
+License: Apache-2.0 OR MIT
+Source: https://github.com/uuid-rs/uuid
+Documents: uuid-1.26.1/LICENSE-APACHE, uuid-1.26.1/LICENSE-MIT
+
+vec_map 0.8.2
+License: MIT/Apache-2.0
+Source: https://github.com/contain-rs/vec-map
+Documents: vec_map-0.8.2/LICENSE-APACHE, vec_map-0.8.2/LICENSE-MIT
+
+winapi 0.3.9
+License: MIT/Apache-2.0
+Source: https://github.com/retep998/winapi-rs
+Documents: winapi-0.3.9/LICENSE-APACHE, winapi-0.3.9/LICENSE-MIT
+
+windows 0.62.2
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-0.62.2/license-apache-2.0, windows-0.62.2/license-mit
+
+windows-collections 0.3.2
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-collections-0.3.2/license-apache-2.0, windows-collections-0.3.2/license-mit
+
+windows-core 0.62.2
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-core-0.62.2/license-apache-2.0, windows-core-0.62.2/license-mit
+
+windows-future 0.3.2
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-future-0.3.2/license-apache-2.0, windows-future-0.3.2/license-mit
+
+windows-implement 0.60.2
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-implement-0.60.2/license-apache-2.0, windows-implement-0.60.2/license-mit
+
+windows-interface 0.59.3
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-interface-0.59.3/license-apache-2.0, windows-interface-0.59.3/license-mit
+
+windows-link 0.2.1
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-link-0.2.1/license-apache-2.0, windows-link-0.2.1/license-mit
+
+windows-numerics 0.3.1
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-numerics-0.3.1/license-apache-2.0, windows-numerics-0.3.1/license-mit
+
+windows-result 0.4.1
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-result-0.4.1/license-apache-2.0, windows-result-0.4.1/license-mit
+
+windows-strings 0.5.1
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-strings-0.5.1/license-apache-2.0, windows-strings-0.5.1/license-mit
+
+windows-sys 0.61.2
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-sys-0.61.2/license-apache-2.0, windows-sys-0.61.2/license-mit
+
+windows-threading 0.2.1
+License: MIT OR Apache-2.0
+Source: https://github.com/microsoft/windows-rs
+Documents: windows-threading-0.2.1/license-apache-2.0, windows-threading-0.2.1/license-mit
+
+zlib-rs 0.6.8
+License: Zlib
+Source: https://github.com/trifectatechfoundation/zlib-rs
+Documents: zlib-rs-0.6.8/LICENSE

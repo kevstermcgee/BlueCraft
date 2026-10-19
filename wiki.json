@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "overview": "BlueCraft is a small first-person creative voxel sandbox made with BlueEngine. Explore a finite block landscape with a starter cottage, grassy hills, trees and a sandy pond, then reshape it by breaking and placing blocks. A nine-slot palette provides unlimited building materials, so you can make a shelter, change the cottage or experiment with a small landscape without collecting resources.\n\nThe crosshair outlines the block within reach and names its material. Walk, sprint and jump around your work, pick a material directly from the terrain, and save a checkpoint to return to a previous design. The world is a compact 64 × 64 × 32 grid of one-metre blocks.",
+  "rules": [
+    "Choose your own building project or explore the landscape. There are no required quests, score targets, victory screen or loss condition, and no survival, health, hunger or enemy systems.",
+    "Aim the crosshair at a block within six metres. Left click breaks the targeted block; right click places the selected material against the targeted face. Mining does not consume a tool or earn an inventory item.",
+    "The nine materials are unlimited: grass, dirt, stone, sand, oak log, leaves, oak planks, brick and glass. Water and bedrock are not available in the building palette.",
+    "You can edit only inside the 64 × 64 × 32 world. The bottom bedrock layer is unbreakable, and placement cannot overlap your body or replace an existing solid block.",
+    "Walk and jump to traverse the terrain. If you fall below the world or travel far beyond its horizontal boundary, the game returns you to the arrival area without a death penalty.",
+    "F5 writes a manual checkpoint, and F9 restores it, including the world and player position. Restoring a checkpoint replaces changes made since that checkpoint.",
+    "Normal play resumes your previous automatic world, saves progress every 15 seconds, and saves on a clean exit. Automatic progress and the manual checkpoint use separate save slots. Starting with --fresh or --seed N creates a world without automatic saves; F5 can still write a checkpoint."
+  ],
+  "controls": [
+    "W, A, S and D: move forward, left, backward and right. Move the mouse to look around.",
+    "Space: jump. Hold Shift while moving to sprint.",
+    "Left mouse button: break the block under the crosshair. Right mouse button: place the selected material against its face.",
+    "Number keys 1–9 or the mouse wheel: select a palette material. The order is grass, dirt, stone, sand, oak log, leaves, oak planks, brick and glass.",
+    "Middle mouse button: select the targeted material when it belongs to the nine-material palette.",
+    "F5: save a manual checkpoint. F9: load the manual checkpoint.",
+    "E: show or hide the control guide. Escape: pause or resume. F: toggle fullscreen."
+  ],
+  "story": "BlueCraft has no scripted narrative, named protagonist or quest. Its setting is a compact, sunny block landscape with a wooden starter cottage, a meadow, trees and a pond. The player supplies the purpose by exploring and building.",
+  "characters": [],
+  "characters_note": "The game is viewed through a first-person camera and does not render a player character model, visible hands, NPCs, animals or enemies. There are no separately depicted characters to illustrate.",
+  "gallery": [
+    {
+      "image": "assets/wiki/cottage-meadow.png",
+      "caption": "The starter cottage and open meadow in a fresh seed-7 world, before any edits.",
+      "alt": "First-person view of a wooden cottage with log corners, glass windows and a stepped roof, surrounded by grass and blocky trees; the nine-material palette is visible."
+    },
+    {
+      "image": "assets/wiki/pond-shoreline.png",
+      "caption": "Walking from the meadow reveals the pond, its sandy shoreline and the surrounding wooded slopes.",
+      "alt": "Blue block water fills a pond edged with pale sand, grass-topped dirt terraces and leafy cubic trees; the first-person crosshair and material palette remain visible."
+    },
+    {
+      "image": "assets/wiki/stone-replacement.png",
+      "caption": "After mining a grass block, a stone block fills the opening; stone is selected in palette slot 3.",
+      "alt": "A single grey stone block sits flush with a green grass surface beneath the crosshair, with Stone selected in the third slot of the nine-material palette."
+    }
+  ],
+  "design": {
+    "origin": "human",
+    "original_prompt": "Using BlueEngine, create a simple Minecraft clone called BlueCraft",
+    "prompt_note": "The original creation request is reproduced verbatim. The user subsequently requested the latest engine version; this guide describes the implemented creative sandbox."
+  }
+}
