@@ -1,6 +1,6 @@
 use bluecraft::{
-    Event, Input, Sim, World, AIR, BEDROCK, BRICK, GLASS, GRASS, HEIGHT, LEAVES, PALETTE, PLANKS, SAND, SIZE, STONE,
-    WATER, WOOD,
+    Event, Input, Sim, World, AIR, BEDROCK, BRICK, CHUNK_SIZE, GLASS, GRASS, HEIGHT, LEAVES, PALETTE, PLANKS, SAND,
+    SIZE, STONE, WATER, WOOD,
 };
 use vesper3d::math::V;
 use vesper3d::viewer::devkit::{Simulation, Snapshot};
@@ -20,20 +20,27 @@ fn site() -> Sim {
 }
 
 #[test]
-fn generated_world_has_terrain_water_trees_and_an_enterable_cottage() {
+fn generated_world_has_nature_and_leaves_construction_to_the_player() {
     let sim = Sim::new(3);
-    assert_eq!(sim.world.data.len(), (SIZE * SIZE * HEIGHT) as usize);
-    for block in [GRASS, STONE, SAND, WOOD, LEAVES, PLANKS, GLASS, WATER, BEDROCK] {
-        assert!(sim.world.data.contains(&block), "missing block kind {block}");
-    }
-    assert_eq!(sim.world.get(40, 12, 33), AIR, "doorway is open");
-    assert_eq!(sim.world.get(40, 13, 33), AIR);
-    assert_eq!(sim.world.get(40, 11, 33), PLANKS);
-    assert!(sim.world.height_at(32, 44) as f32 <= sim.player.feet_height());
-    for x in 0..SIZE {
-        for z in 0..SIZE {
+    let mut found = std::collections::BTreeSet::new();
+    for z in 0..SIZE {
+        for x in 0..SIZE {
+            for y in 0..HEIGHT {
+                found.insert(sim.world.get(x, y, z));
+            }
             assert_eq!(sim.world.get(x, 0, z), BEDROCK);
         }
+    }
+    for block in [GRASS, STONE, SAND, WOOD, LEAVES, WATER, BEDROCK] {
+        assert!(found.contains(&block), "missing natural block kind {block}");
+    }
+    assert!(!found.contains(&PLANKS), "new worlds have no prebuilt cottage");
+    assert!(!found.contains(&GLASS));
+    assert!(!found.contains(&BRICK));
+    assert!(sim.world.height_at(32, 44) as f32 <= sim.player.feet_height());
+    for (x, z) in [(-1000, -1000), (-1, 64), (64, -1), (1000, 1000)] {
+        assert_eq!(sim.world.get(x, 0, z), BEDROCK);
+        assert!(sim.world.height_at(x, z) > 4, "terrain continues past the original map");
     }
 }
 
@@ -202,15 +209,94 @@ fn water_is_decorative_and_does_not_hide_blocks_from_the_ray() {
 }
 
 #[test]
-fn invalid_axes_cannot_poison_movement_and_the_world_boundary_blocks_walking() {
+fn invalid_axes_cannot_poison_movement() {
     let mut sim = site();
     sim.step(&Input { forward: f32::NAN, right: f32::INFINITY, look: [f32::NAN, 0.], ..Default::default() });
     assert!(sim.player.position.finite());
-    sim.world = World::empty(3);
-    sim.player.set_physics_state(V(1., 2.68, 10.5), 0., true);
-    sim.player.yaw = -std::f32::consts::FRAC_PI_2;
-    for _ in 0..120 {
-        sim.step(&Input { forward: 1., sprint: true, ..Default::default() });
+    for position in [V(f32::NAN, 0., 0.), V(f32::MAX, 0., 0.), V(0., 0., f32::NEG_INFINITY)] {
+        sim.player.position = position;
+        sim.step(&Input::default());
+        assert!(sim.player.position.finite());
+        assert!(sim.drain_events().contains(&Event::Respawned));
     }
-    assert!(sim.player.position.0 >= sim.player.profile().radius - 0.001);
+}
+
+#[test]
+fn all_four_original_map_edges_can_be_crossed_without_walls_or_respawning() {
+    for (start, yaw, axis, positive) in [
+        (V(1., 2.68, 10.5), -std::f32::consts::FRAC_PI_2, 0, false),
+        (V(63., 2.68, 10.5), std::f32::consts::FRAC_PI_2, 0, true),
+        (V(10.5, 2.68, 1.), 0., 2, false),
+        (V(10.5, 2.68, 63.), std::f32::consts::PI, 2, true),
+    ] {
+        let mut sim = Sim::new(3);
+        sim.world = World::empty(3);
+        sim.player.set_physics_state(start, 0., true);
+        sim.player.yaw = yaw;
+        for _ in 0..120 {
+            sim.step(&Input { forward: 1., sprint: true, ..Default::default() });
+        }
+        let value = if axis == 0 { sim.player.position.0 } else { sim.player.position.2 };
+        assert!(if positive { value > 70. } else { value < -6. }, "edge crossing stopped at {value}");
+        assert!(sim.player.is_grounded(), "bedrock also continues beyond every former edge");
+        assert!(!sim.drain_events().contains(&Event::Respawned));
+    }
+}
+
+#[test]
+fn negative_coordinate_edits_and_chunk_seams_are_addressed_independently() {
+    let mut world = World::empty(4);
+    for (n, x) in [-CHUNK_SIZE - 1, -CHUNK_SIZE, -1, 0, CHUNK_SIZE - 1, CHUNK_SIZE].into_iter().enumerate() {
+        assert!(world.set(x, 12, -1, PALETTE[n]));
+        assert_eq!(world.get(x, 12, -1), PALETTE[n]);
+        assert_eq!(world.get(x, 12, 0), AIR);
+        assert_eq!(world.chunk_revision(x.div_euclid(CHUNK_SIZE), -1), [1, 1, 2, 1, 2, 1][n]);
+    }
+    assert!(!world.set(-1, 0, -1, AIR));
+    assert_eq!(world.get(-1, 0, -1), BEDROCK);
+    assert_eq!(world.get(i32::MIN, 0, i32::MAX), BEDROCK);
+}
+
+#[test]
+fn natural_tree_crowns_continue_across_positive_and_negative_chunk_seams() {
+    let world = World::new(42);
+    let mut crossed = [false; 4];
+    for z in -80i32..80 {
+        for x in -80i32..80 {
+            let Some(y) = (1..HEIGHT).rev().find(|&y| world.get(x, y, z) == WOOD) else {
+                continue;
+            };
+            for (axis, coordinate) in [(0, x), (1, z)] {
+                let offset = match coordinate.rem_euclid(CHUNK_SIZE) {
+                    0 | 1 => -2,
+                    14 | 15 => 2,
+                    _ => continue,
+                };
+                let (leaf_x, leaf_z) = if axis == 0 { (x + offset, z) } else { (x, z + offset) };
+                assert!(
+                    matches!(world.get(leaf_x, y, leaf_z), LEAVES | WOOD),
+                    "a tree crown was cut off at chunk seam {leaf_x},{y},{leaf_z}"
+                );
+                crossed[axis * 2 + usize::from(coordinate >= 0)] = true;
+            }
+        }
+    }
+    assert!(crossed.into_iter().all(|crossed| crossed), "the probe must cover both signs of both axes");
+}
+
+#[test]
+fn crouching_lowers_the_player_slows_walking_and_releases_smoothly() {
+    let mut walk = site();
+    let mut crouch = site();
+    for _ in 0..25 {
+        walk.step(&Input { right: 1., ..Default::default() });
+        crouch.step(&Input { right: 1., crouch: true, ..Default::default() });
+    }
+    assert!(crouch.player.is_crouched());
+    assert!(crouch.player.body_height() < walk.player.body_height() - 0.5);
+    assert!(crouch.player.position.0 < walk.player.position.0 - 0.5);
+    for _ in 0..25 {
+        crouch.step(&Input::default());
+    }
+    assert!(!crouch.player.is_crouched());
 }

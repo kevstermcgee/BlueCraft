@@ -1,7 +1,7 @@
 {
   "title": "BlueCraft",
   "tagline": "Build a little world.",
-  "controls": "WASD move, mouse look, Space jump, Shift sprint, left click break, right click place, wheel/1-9 select, middle click pick, F5/F9 save/load, E help, F fullscreen, Esc pause",
+  "controls": "WASD/sticks move/look, Space/A jump, Shift/L3 sprint, Ctrl/B crouch, LMB/RT mine, RMB/LT place, wheel/LB-RB blocks, MMB/X pick, F5-F9/D-pad checkpoint, E/Y guide, Esc/Start menu, F fullscreen",
   "smoke_args": [
     "--capture",
     "{dir}",
