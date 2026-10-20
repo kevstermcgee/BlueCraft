@@ -140,7 +140,9 @@ jobs:
       - name: Verify the text-only studio card from the shipped executable
         shell: pwsh
         run: |
-          ../startup-verifier/distribution/check_startup_windows.ps1 -Executable (Resolve-Path 'dist/bluecraft.exe') -ExpectedTitle 'BlueCraft' -OutputDirectory '.blue-check/startup' -OpenGLDirectory $env:BE2_CI_OPENGL_DIR -ToggleKey F
+          $stage = Join-Path $env:RUNNER_TEMP 'bluecraft-startup-package'
+          Copy-Item dist $stage -Recurse
+          ../startup-verifier/distribution/check_startup_windows.ps1 -Executable (Join-Path $stage 'bluecraft.exe') -ExpectedTitle 'BlueCraft' -OutputDirectory '.blue-check/startup' -OpenGLDirectory $env:BE2_CI_OPENGL_DIR -ToggleKey F
 
       - name: Install Inno Setup 6
         shell: pwsh
