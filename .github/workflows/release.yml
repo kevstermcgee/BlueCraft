@@ -7,7 +7,7 @@ on:
         description: Cargo package version to build
         type: string
         required: true
-        default: '0.1.0'
+        default: '0.1.1'
       publish:
         description: Publish a new immutable release after every Windows gate passes
         type: boolean
@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BLUECRAFT_ENGINE_REVISION: e7ba8467fe9043527579fc8fac3de7818dddea3a
+  BLUECRAFT_ENGINE_REVISION: 1a5b696ee653179c6898b1c4195cb1d3d2715d6e
 
 jobs:
   windows:
@@ -127,6 +127,21 @@ jobs:
               if not setter(None):
                   raise ctypes.WinError(ctypes.get_last_error())
 
+      - name: Check out the pinned Windows startup verifier
+        uses: actions/checkout@v4
+        with:
+          repository: kevstermcgee/BlueEngineGames
+          ref: 824720b9679a8308bc6b0a475cfe16a7d5fd82bd
+          path: startup-verifier
+          sparse-checkout: distribution/check_startup_windows.ps1
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Verify the text-only studio card from the shipped executable
+        shell: pwsh
+        run: |
+          ../startup-verifier/distribution/check_startup_windows.ps1 -Executable (Resolve-Path 'dist/bluecraft.exe') -ExpectedTitle 'BlueCraft' -OutputDirectory '.blue-check/startup' -OpenGLDirectory $env:BE2_CI_OPENGL_DIR -ToggleKey F
+
       - name: Install Inno Setup 6
         shell: pwsh
         run: |
@@ -162,6 +177,9 @@ jobs:
           release.mkdir(exist_ok=True)
           shutil.copy2(artifact, release / artifact.name)
           (release / 'SHA256SUMS.txt').write_text(digest + '  ' + artifact.name + '\n', encoding='ascii')
+          startup = json.loads(pathlib.Path('.blue-check/startup/startup-proof.json').read_text(encoding='utf-8-sig'))
+          if startup.get('retired_studio_artwork_absent') is not True or startup['executable_sha256'] != hashlib.sha256(pathlib.Path('dist/bluecraft.exe').read_bytes()).hexdigest():
+              raise SystemExit('Startup proof does not match the shipped text-only executable')
           metadata = {
               'name': 'BlueCraft', 'version': os.environ['RELEASE_VERSION'],
               'source_repository': os.environ['GITHUB_REPOSITORY'],
@@ -171,6 +189,7 @@ jobs:
               'workflow_run': os.environ['GITHUB_SERVER_URL'] + '/' + os.environ['GITHUB_REPOSITORY'] + '/actions/runs/' + os.environ['GITHUB_RUN_ID'],
               'installer': artifact.name, 'installer_sha256': digest,
               'windows_package_smoke': True, 'installer_install_upgrade_uninstall': True,
+              'text_only_studio_card': True,
               'physical_device_review': False,
           }
           (release / 'release-metadata.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')

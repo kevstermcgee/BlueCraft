@@ -55,7 +55,7 @@ dependency, and check out the pinned engine revision:
 
 ```sh
 git clone https://github.com/kevstermcgee/BlueEngine.git bluecraft-engine
-git -C bluecraft-engine checkout e7ba8467fe9043527579fc8fac3de7818dddea3a
+git -C bluecraft-engine checkout 1a5b696ee653179c6898b1c4195cb1d3d2715d6e
 git clone https://github.com/kevstermcgee/BlueCraft.git bluecraft
 cd bluecraft
 cargo test --locked --no-default-features
