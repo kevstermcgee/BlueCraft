@@ -1,11 +1,6 @@
-//! Original, quiet audio for building and wandering. All synthesis runs on SoundBank's worker.
-//!
-//! "Open Meadow" is a 3:12 score in F major, at 60 BPM: four different piano phrases over
-//! twelve related, softly voiced chords. There are no borrowed recordings or melodies. A single
-//! stereo stem keeps the instruments on the same sample clock; release and room tails wrap into
-//! the beginning rather than being cut off when the backend loops it.
+//! Quiet material contacts for building and wandering; the soundtrack is pre-rendered separately.
 use bluecraft::{Event, BRICK, DIRT, GLASS, GRASS, LEAVES, PLANKS, SAND, STONE, WOOD};
-use std::f32::consts::{FRAC_PI_2, TAU};
+use std::f32::consts::TAU;
 use vesper3d::viewer::{
     devkit::{synth, Rng},
     kit::Rendered,
@@ -16,8 +11,6 @@ const MATERIALS: usize = 7;
 pub const EFFECT_VARIANTS: usize = 3;
 pub const EFFECT_COUNT: usize = MATERIALS * 3 + 2;
 pub const LOADED_EFFECTS: usize = EFFECT_COUNT * EFFECT_VARIANTS;
-pub const MUSIC_STEMS: usize = 1;
-pub const MUSIC_SECONDS: usize = 192;
 const JUMP: usize = MATERIALS * 3;
 const LAND: usize = JUMP + 1;
 
@@ -59,8 +52,7 @@ pub fn render() -> Rendered {
     let sfx = (0..EFFECT_COUNT)
         .map(|cue| (0..EFFECT_VARIANTS).map(|variant| synth::wav_bytes(&effect(cue, variant), RATE)).collect())
         .collect();
-    let (left, right) = music();
-    Rendered { sfx, stems: vec![synth::wav_bytes_stereo(&left, &right, RATE)] }
+    Rendered { sfx, stems: Vec::new() }
 }
 
 fn smooth(value: f32) -> f32 {
@@ -137,113 +129,6 @@ fn effect(cue: usize, variant: usize) -> Vec<f32> {
     samples
 }
 
-#[derive(Clone, Copy)]
-enum Voice {
-    Piano,
-    Pad,
-    Bass,
-}
-
-/// Each chord lasts four seconds. The upper voices move by small intervals; suspended ninths
-/// and open fifths give the piano room, without a drum beat or an insistent arpeggio.
-const CHORDS: [[u8; 4]; 12] = [
-    [53, 57, 60, 64],
-    [52, 55, 59, 62],
-    [53, 57, 60, 64],
-    [53, 57, 62, 65],
-    [53, 57, 60, 67],
-    [53, 57, 62, 65],
-    [52, 55, 60, 62],
-    [53, 57, 60, 64],
-    [53, 57, 60, 64],
-    [53, 57, 62, 65],
-    [53, 57, 62, 65],
-    [52, 55, 60, 62],
-];
-const BASS: [u8; 12] = [41, 45, 38, 46, 45, 43, 48, 41, 38, 46, 43, 48];
-// Four original, deliberately sparse phrases. Zero is a rest. Notes occur within the current
-// chord at gently uneven offsets, leaving long stretches for the tail and surrounding world.
-const MELODY: [[[u8; 2]; 12]; 4] = [
-    [[69, 0], [67, 72], [69, 65], [65, 0], [72, 69], [70, 0], [67, 62], [65, 0], [64, 69], [65, 0], [62, 65], [67, 0]],
-    [[72, 69], [71, 0], [69, 72], [74, 0], [72, 0], [69, 65], [67, 72], [69, 0], [65, 64], [65, 69], [70, 0], [67, 0]],
-    [[65, 0], [67, 0], [69, 64], [65, 0], [60, 65], [62, 0], [64, 67], [65, 0], [69, 0], [74, 69], [65, 0], [62, 64]],
-    [[69, 72], [74, 0], [72, 69], [65, 0], [67, 69], [65, 62], [64, 0], [65, 69], [64, 0], [65, 0], [62, 65], [67, 0]],
-];
-
-fn music() -> (Vec<f32>, Vec<f32>) {
-    let frames = MUSIC_SECONDS * RATE as usize;
-    let mut left = vec![0.; frames];
-    let mut right = vec![0.; frames];
-    for (phrase, melody) in MELODY.iter().enumerate() {
-        for (bar, notes) in melody.iter().enumerate() {
-            let at = (phrase * 48 + bar * 4) as f32;
-            for (voice, &midi) in CHORDS[bar].iter().enumerate() {
-                note(&mut left, &mut right, at, 3.75, midi, 0.020, (voice as f32 - 1.5) * 0.28, Voice::Pad);
-            }
-            note(&mut left, &mut right, at + 0.08, 3.0, BASS[bar], 0.036, 0., Voice::Bass);
-            for (index, &midi) in notes.iter().enumerate().filter(|(_, midi)| **midi != 0) {
-                let start = at + [0.46, 2.57][index] + (bar % 3) as f32 * 0.07;
-                let pan = ((bar * 7 + phrase * 3) % 9) as f32 * 0.065 - 0.26;
-                let gain = if index == 0 { 0.115 } else { 0.080 };
-                note(&mut left, &mut right, start, 2.1, midi, gain, pan, Voice::Piano);
-            }
-            // Widely spaced, low piano intervals appear only in the two fuller middle phrases.
-            if (phrase == 1 || phrase == 2) && bar % 3 == 0 {
-                note(&mut left, &mut right, at + 1.37, 2.4, CHORDS[bar][1], 0.047, -0.35, Voice::Piano);
-            }
-        }
-    }
-    // A small, fixed stereo room: diffuse reflections, no chorus, modulation or pitch wobble.
-    let dry_left = left.clone();
-    let dry_right = right.clone();
-    for (seconds, gain) in [(0.137, 0.12), (0.283, 0.075), (0.431, 0.045)] {
-        let delay = (seconds * RATE as f32) as usize;
-        for index in 0..frames {
-            let source = (index + frames - delay) % frames;
-            left[index] += dry_right[source] * gain;
-            right[index] += dry_left[source] * gain;
-        }
-    }
-    // Quiet background headroom is authored into the asset rather than depending on menu defaults.
-    let peak = left.iter().chain(&right).fold(0f32, |peak, sample| peak.max(sample.abs()));
-    let gain = 0.32 / peak.max(0.32);
-    for sample in left.iter_mut().chain(&mut right) {
-        *sample *= gain;
-    }
-    (left, right)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn note(left: &mut [f32], right: &mut [f32], at: f32, hold: f32, midi: u8, gain: f32, pan: f32, voice: Voice) {
-    let frequency = 440. * 2f32.powf((f32::from(midi) - 69.) / 12.);
-    let (attack, release) = match voice {
-        Voice::Piano => (0.015, 3.6),
-        Voice::Pad => (0.95, 1.15),
-        Voice::Bass => (0.09, 0.65),
-    };
-    let frames = ((hold + release) * RATE as f32) as usize;
-    let start = (at * RATE as f32) as usize;
-    let angle = (pan + 1.) * 0.5 * FRAC_PI_2;
-    let (lgain, rgain) = (angle.cos() * gain, angle.sin() * gain);
-    for index in 0..frames {
-        let t = index as f32 / RATE as f32;
-        let envelope = smooth(t / attack) * smooth((hold + release - t) / release);
-        let phase = TAU * frequency * t;
-        let sample = match voice {
-            Voice::Piano => {
-                phase.sin() * (-t / 2.3).exp()
-                    + 0.18 * (phase * 2.).sin() * (-t / 0.85).exp()
-                    + 0.035 * (phase * 3.).sin() * (-t / 0.4).exp()
-            }
-            Voice::Pad => phase.sin() + 0.075 * (phase * 2.).sin(),
-            Voice::Bass => (phase.sin() + 0.10 * (phase * 2.).sin()) * (-t / 2.8).exp(),
-        } * envelope;
-        let destination = (start + index) % left.len();
-        left[destination] += sample * lgain;
-        right[destination] += sample * rgain;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,39 +174,6 @@ mod tests {
                     assert_ne!(samples, effect(cue, variant - 1));
                 }
             }
-        }
-    }
-
-    #[test]
-    fn complete_score_has_background_headroom_and_a_continuous_stereo_wrap() {
-        let (left, right) = music();
-        assert_eq!(left.len(), MUSIC_SECONDS * RATE as usize);
-        assert_eq!(left.len(), right.len());
-        assert_ne!(left, right);
-        for channel in [&left, &right] {
-            let (peak, rms, dc) = stats(channel);
-            eprintln!(
-                "Open Meadow: {}s, peak {peak:.5}, RMS {rms:.5}, DC {dc:.7}, seam {:.7}",
-                MUSIC_SECONDS,
-                (channel[0] - channel[channel.len() - 1]).abs()
-            );
-            assert!(channel.iter().all(|sample| sample.is_finite()));
-            assert!(peak <= 0.321);
-            assert!((0.01..0.10).contains(&rms));
-            assert!(dc.abs() < 0.0001);
-            assert!((channel[0] - channel[channel.len() - 1]).abs() < 0.003);
-        }
-        // Optional offline evidence, never an audio-device or physical-listening claim.
-        if let Some(directory) = std::env::var_os("BLUECRAFT_AUDIO_PREVIEW_DIR") {
-            let directory = std::path::PathBuf::from(directory);
-            std::fs::create_dir_all(&directory).unwrap();
-            std::fs::write(directory.join("open-meadow.wav"), synth::wav_bytes_stereo(&left, &right, RATE)).unwrap();
-            let mut contacts = Vec::new();
-            for cue in 0..EFFECT_COUNT {
-                contacts.extend(effect(cue, 0));
-                contacts.resize(contacts.len() + RATE as usize / 5, 0.);
-            }
-            std::fs::write(directory.join("material-contacts.wav"), synth::wav_bytes(&contacts, RATE)).unwrap();
         }
     }
 }

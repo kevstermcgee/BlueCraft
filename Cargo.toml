@@ -1,6 +1,6 @@
 [package]
 name = "bluecraft"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "BlueCraft: a creative voxel sandbox built with BlueEngine."
 
@@ -11,7 +11,7 @@ path = "src/lib.rs"
 
 [features]
 default = ["client"]
-client = ["vesper3d/native-client", "dep:macroquad", "dep:windows-sys"]
+client = ["vesper3d/native-client", "dep:macroquad", "dep:windows-sys", "dep:audrey"]
 
 [[bin]]
 name = "bluecraft"
@@ -23,6 +23,7 @@ vesper3d = { package = "be2", path = "../bluecraft-engine", default-features = f
 macroquad = { optional = true, version = "=0.4.14", default-features = false, features = ["audio"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+audrey = { optional = true, version = "=0.3.0", default-features = false, features = ["ogg_vorbis"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { optional = true, version = "=0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_System_Console", "Win32_UI_Input_KeyboardAndMouse"] }
