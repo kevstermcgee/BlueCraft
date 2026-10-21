@@ -7,7 +7,7 @@ on:
         description: Cargo package version to build
         type: string
         required: true
-        default: '0.2.0'
+        default: '0.3.0'
       publish:
         description: Publish a new immutable release after every Windows gate passes
         type: boolean
@@ -87,6 +87,7 @@ jobs:
               ('tests', ['cargo', 'test', '--locked']),
               ('clippy', ['cargo', 'clippy', '--locked', '--all-targets', '--', '-D', 'warnings']),
               ('content', ['python', 'scripts/check.py', '--content-only']),
+              ('soundtrack-authoring', ['python', '-m', 'unittest', 'discover', '-s', 'tools', '-p', 'test_render_soundtrack.py']),
           ]
           for label, command in commands:
               result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)

@@ -2,8 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod audio;
 mod controls;
+mod music_menu;
 mod platform;
 mod presentation;
+mod soundtrack;
 
 use bluecraft::{Event, Input, Sim};
 use macroquad::prelude::*;
@@ -99,11 +101,21 @@ async fn main() {
         }
     }
     life.load_flag_or_exit(&mut sim);
-    let settings_path = beside_exe("settings.json");
+    let settings_path =
+        flag_value(&args, "--settings").map(std::path::PathBuf::from).unwrap_or_else(|| beside_exe("settings.json"));
     let mut settings = Settings::load(&settings_path);
-    let mut sounds =
-        SoundBank::start(life.options.silent(), settings.sfx_level(), settings.music_level(), audio::render).await;
+    let (music_root, music_catalog) =
+        soundtrack::load_catalog().unwrap_or_else(|error| panic!("Could not load BlueCraft's soundtrack: {error}"));
+    let songs: Vec<_> = music_catalog
+        .tracks
+        .iter()
+        .map(|track| music_menu::Song { title: &track.title, duration_seconds: track.seconds as f32 })
+        .collect();
+    let mut music = soundtrack::Soundtrack::new(music_root, music_catalog.clone(), life.options.silent());
+    let mut sounds = SoundBank::start(life.options.silent(), settings.sfx_level(), 0., audio::render).await;
     let mut shell = GameShell::new();
+    let mut menu = music_menu::MusicMenu::default();
+    let mut music_notice: Option<String> = None;
     let mut input = ClientInput::new();
     let mouse = MouseLook::default();
     let mut art = presentation::Presentation::new();
@@ -129,8 +141,18 @@ async fn main() {
         input.begin_frame_with_keyboard(&mut shell, true, unattended || platform::focused(), platform::keyboard());
         let dt = life.begin_frame(input.frame_seconds());
         sounds.poll().await;
-        sounds.start_music();
-        sounds.update_music(dt, &[if shell.paused { 0.35 } else { 1.0 }]);
+        music.poll().await;
+        music.update(settings.music_level(), shell.paused);
+        if let Some(result) = music.poll_export() {
+            music_notice = Some(match result {
+                Ok(path) => {
+                    notice = Some("Song saved to Downloads.".into());
+                    notice_left = 5.;
+                    format!("Saved to {}", path.display())
+                }
+                Err(error) => format!("Could not save song: {error}"),
+            });
+        }
         let pad = controls::gamepad_actions(input.gamepad(), sim.selected, shell.accepting_input());
         if !input.gamepad().neutral() {
             controller_hints = true;
@@ -282,7 +304,7 @@ async fn main() {
             // Optional read-only telemetry lets native device probes wait for fixed ticks.
             let state = serde_json::json!({"tick":sim.tick,"mined":sim.mined,"placed":sim.placed,
                 "selected":sim.selected,"position":[sim.player.position.0,sim.player.position.1,sim.player.position.2],
-                "yaw":sim.player.yaw,"pitch":sim.player.pitch,"paused":shell.paused});
+                "yaw":sim.player.yaw,"pitch":sim.player.pitch,"paused":shell.paused,"soundtrack":music.report()});
             if let Err(error) = std::fs::write(path, state.to_string()) {
                 eprintln!("Could not write live input evidence: {error}");
             }
@@ -314,7 +336,7 @@ async fn main() {
                 "LB / RB: previous / next material",
                 "D-pad up / down: save / load checkpoint",
                 "Y / View: guide   Start: pause",
-                "Menus: stick / D-pad, A select, B back",
+                "Menus: stick / D-pad, A select, B resume",
             ]
         } else {
             [
@@ -327,14 +349,35 @@ async fn main() {
                 "E: guide   Esc: pause   F: fullscreen",
             ]
         };
-        let outcome = shell.local_menu_with_audio(
-            &identity.title,
-            &controls,
-            AudioMenu { music_on: settings.music_on, sfx_on: settings.sfx_on, has_music: true },
+        let playback_status =
+            if settings.music_on { music.status() } else { "Music is off. The album continues quietly.".to_owned() };
+        let outcome = menu.draw(
+            &input,
+            &shell,
+            music_menu::MenuModel {
+                title: &identity.title,
+                controls: &controls,
+                audio: AudioMenu { music_on: settings.music_on, sfx_on: settings.sfx_on, has_music: true },
+                songs: &songs,
+                state: music_menu::MenuState {
+                    current_song: music.current_track(),
+                    playback_status: &playback_status,
+                    can_download: !music.export_busy(),
+                    notice: music_notice.as_deref(),
+                },
+            },
         );
+        if outcome.resume {
+            shell.paused = false;
+        }
+        if let Some(index) = outcome.download_song {
+            music_notice = Some(match music.export(index) {
+                Ok(()) => format!("Saving {} to Downloads...", songs[index].title),
+                Err(error) => format!("Could not save song: {error}"),
+            });
+        }
         if outcome.toggle_music {
             settings.toggle_music();
-            sounds.music_volume = settings.music_level();
             settings.store(&settings_path);
         }
         if outcome.toggle_sfx {
@@ -365,7 +408,7 @@ async fn main() {
         "tick":sim.tick,"mined":sim.mined,"placed":sim.placed,"selected":sim.selected,
         "position":[sim.player.position.0,sim.player.position.1,sim.player.position.2],
         "yaw":sim.player.yaw,"pitch":sim.player.pitch,
-        "state_hash":format!("{:016x}",sim.state_hash()),"devices":evidence});
+        "state_hash":format!("{:016x}",sim.state_hash()),"devices":evidence,"soundtrack":music.report()});
     println!("bluecraft: {report}");
     if let Some(path) = flag_value(&args, "--input-report") {
         if let Err(error) = std::fs::write(path, serde_json::to_vec_pretty(&report).unwrap()) {
@@ -375,7 +418,7 @@ async fn main() {
     if life.options.audible {
         let status = sounds.status();
         println!("audio: {status:?}");
-        if let Err(error) = status.verify_playback(audio::LOADED_EFFECTS, audio::MUSIC_STEMS) {
+        if let Err(error) = status.verify_playback(audio::LOADED_EFFECTS, 0).and_then(|()| music.verify_playback()) {
             eprintln!("{error}");
             std::process::exit(1);
         }

@@ -24,12 +24,17 @@
     {
       "id": "audio",
       "area": "audio",
-      "instructions": "Listen on an actual output device to the quiet original piano-and-pad music over several minutes and its loop transition. Mine/place different materials, walk and land; confirm subtle material cues, comfortable mix, separate music/effects toggles and persistence across relaunch. Record hardware and what was heard; software metrics and playback counters leave hardware listening pending."
+      "instructions": "Listen to the ten-song original ambient album on actual speakers or headphones. Check relative loudness, musical variety and calmness; hear every 12-second transition, including Homeward Light back to Open Meadow. Pause and mute during a transition; verify no abrupt restart, comfortable mix with material contacts and persistent music/effects settings. Record hardware and what was heard; software metrics and playback counters leave listening pending."
     },
     {
       "id": "exploration",
       "area": "gameplay",
       "instructions": "Start a fresh world and confirm there is no prebuilt house. Explore beyond x/z 0 and 64 in both directions; confirm continuous terrain, trees, rendering and collision. Edit blocks across a chunk border, travel away, return, save and restart; verify builds persist. Load an old checkpoint and confirm its original blocks survive."
+    },
+    {
+      "id": "soundtrack-downloads",
+      "area": "controls",
+      "instructions": "Open the native pause menu with keyboard/mouse and a physical controller. Confirm the current song title and time; open Soundtrack and download each of the ten songs. Reopen the OGG files in a media player and verify titles, duration and full playback. Re-download a song to confirm the earlier file survives. Check the saved-path notice and paging at a smaller window size. Record OS, device and output folder; synthetic UI probes do not attest physical devices."
     }
   ]
 }

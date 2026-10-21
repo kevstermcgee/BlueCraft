@@ -12,9 +12,10 @@ there are no walls at the old map edges. New worlds have no prebuilt house.
 The build height remains 32 blocks. There are no enemies, survival meters or
 required objectives: choose your own building project.
 
-An original 3 minute 12 second ambient piano-and-pad score accompanies building.
-Quiet material-specific effects distinguish earth, stone, sand, wood, leaves and
-glass. Music and effects can be muted separately in the pause menu; settings persist.
+Ten original ambient songs accompany building: nearly 30 minutes of soft piano,
+glass keys, wooden plucks, dulcimer and quiet pads. Songs blend through 12-second
+crossfades. Quiet material-specific effects distinguish earth, stone, sand, wood,
+leaves and glass. Music and effects have separate persistent settings.
 
 ![BlueCraft natural landscape](assets/wiki/open-landscape.png)
 
@@ -55,7 +56,7 @@ building loop. Button names below use Xbox positions.
 | Y or View | Toggle guide |
 | D-pad up / down | Save / load manual checkpoint |
 | Start | Pause / resume |
-| Stick / D-pad, A, B in menus | Navigate, select, back |
+| Stick / D-pad, A, B in menus | Navigate, select, resume |
 
 The HUD switches to controller hints when the pad is used. A checkpoint load
 restores its saved world and position, replacing subsequent changes.
@@ -78,6 +79,43 @@ its world and player position, replacing subsequent changes.
 Start with `--fresh` for a new world or `--seed N` for a repeatable world. These
 runs leave automatic progress untouched and do not save automatically; F5 can
 still write a manual checkpoint.
+
+## Soundtrack
+
+Pause with Esc or Start to see the current song title and playback time. Choose
+**Soundtrack**, then **Download** beside any of the ten songs. Downloads save the
+original tagged stereo OGG file to your Downloads folder, with the full location
+shown in the menu. Downloading the same song again adds a number and preserves
+the earlier file. Downloads work while music is muted.
+
+Use arrows, Tab or the controller stick/D-pad to select a song, then Enter or A to
+download it. Smaller windows paginate the list; left/right or the page buttons
+reach the remaining songs. Backspace or Back returns to the main pause menu.
+Esc, Start or B resumes play from any menu page.
+
+![BlueCraft soundtrack pause menu](assets/wiki/soundtrack-library.png)
+
+The album rotates in the following order, including a crossfade from the last song
+back to the first. Pause gently lowers the music; muting keeps the song timeline
+moving. Only the current song and its successor are loaded into the audio backend.
+
+| Song | Duration |
+| --- | --- |
+| [Open Meadow](assets/music/01-open-meadow.ogg) | 3:12 |
+| [Glasswater](assets/music/02-glasswater.ogg) | 2:48 |
+| [Below the Ferns](assets/music/03-below-the-ferns.ogg) | 2:54 |
+| [Clouds in Pieces](assets/music/04-clouds-in-pieces.ogg) | 3:05 |
+| [Lantern Current](assets/music/05-lantern-current.ogg) | 2:47 |
+| [A Place to Rest](assets/music/06-a-place-to-rest.ogg) | 3:00 |
+| [Copper Dawn](assets/music/07-copper-dawn.ogg) | 3:00 |
+| [Far Hills](assets/music/08-far-hills.ogg) | 3:08 |
+| [Rain on Leaves](assets/music/09-rain-on-leaves.ogg) | 2:55 |
+| [Homeward Light](assets/music/10-homeward-light.ogg) | 3:08 |
+
+The songs are separate original compositions with different motifs, harmony,
+forms and instrumentation. [Composition notes and rebuild instructions](soundtrack/README.md)
+include the offline score sources and signal/transition measurements. Music is
+rendered before shipping; the game does not synthesize the album at startup.
 
 ## Develop
 

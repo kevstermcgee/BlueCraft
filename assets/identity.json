@@ -12,6 +12,7 @@
   ],
   "engine_revision": "1a5b696ee653",
   "package": [
-    "assets/licenses"
+    "assets/licenses",
+    "assets/music"
   ]
 }
