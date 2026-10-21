@@ -2,9 +2,15 @@
 use serde::{Deserialize, Serialize};
 use vesper3d::math::V;
 use vesper3d::viewer::controller::{Collider, Controller, ControllerState, Movement};
-use vesper3d::viewer::devkit::{path::yaw_facing, Rng, SavePolicy, Simulation, Snapshot, StateHasher, TICK};
+use vesper3d::viewer::devkit::{
+    path::yaw_facing, snapshot::Migration, SavePolicy, Simulation, Snapshot, StateHasher, TICK,
+};
 use vesper3d::viewer::profile::ControllerProfile;
 
+mod world;
+pub use world::{World, CHUNK_SIZE};
+
+/// Historical save footprint, retained only for version-one migration.
 pub const SIZE: i32 = 64;
 pub const HEIGHT: i32 = 32;
 pub const AIR: u8 = 0;
@@ -22,7 +28,9 @@ pub const BEDROCK: u8 = 11;
 pub const PALETTE: [u8; 9] = [GRASS, DIRT, STONE, SAND, WOOD, LEAVES, PLANKS, BRICK, GLASS];
 pub const REACH: f32 = 6.;
 const ACTION_DELAY: u8 = 10;
-const CELLS: usize = (SIZE * SIZE * HEIGHT) as usize;
+const LEGACY_CELLS: usize = (SIZE * SIZE * HEIGHT) as usize;
+// Beyond this distance metre-sized f32 collision coordinates lose useful precision.
+const MAX_POSITION: f32 = 1_000_000.;
 
 pub fn block_name(block: u8) -> &'static str {
     match block {
@@ -72,6 +80,7 @@ pub struct Input {
     pub look: [f32; 2],
     pub jump: bool,
     pub sprint: bool,
+    pub crouch: bool,
     pub mine: bool,
     pub place: bool,
     pub pick: bool,
@@ -96,196 +105,18 @@ pub struct Hit {
     pub block: u8,
 }
 
-/// Cells are one metre across, stored in y/z/x order.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct World {
-    pub seed: u64,
-    pub data: Vec<u8>,
-}
-
 impl World {
-    pub fn empty(seed: u64) -> Self {
-        let mut world = Self { seed, data: vec![AIR; CELLS] };
-        world.data[..(SIZE * SIZE) as usize].fill(BEDROCK);
-        world
-    }
-
-    pub fn in_bounds(x: i32, y: i32, z: i32) -> bool {
-        (0..SIZE).contains(&x) && (0..HEIGHT).contains(&y) && (0..SIZE).contains(&z)
-    }
-
-    pub fn get(&self, x: i32, y: i32, z: i32) -> u8 {
-        if Self::in_bounds(x, y, z) {
-            self.data[((y * SIZE + z) * SIZE + x) as usize]
-        } else {
-            AIR
-        }
-    }
-
-    /// Bedrock and the finite world's bounds are immutable.
-    pub fn set(&mut self, x: i32, y: i32, z: i32, block: u8) -> bool {
-        if y == 0 || !Self::in_bounds(x, y, z) || block > WATER {
-            return false;
-        }
-        let index = ((y * SIZE + z) * SIZE + x) as usize;
-        let changed = self.data[index] != block;
-        self.data[index] = block;
-        changed
-    }
-
-    /// Feet height on the highest solid block, ignoring decorative water.
-    pub fn height_at(&self, x: i32, z: i32) -> i32 {
-        (0..HEIGHT).rev().find(|&y| is_solid(self.get(x, y, z))).map_or(0, |y| y + 1)
-    }
-
-    pub fn new(seed: u64) -> Self {
-        let mut world = Self::empty(seed);
-        let mut rng = Rng::new(seed);
-        let ox = rng.range(0., 1000.);
-        let oz = rng.range(0., 1000.);
-        for z in 0..SIZE {
-            for x in 0..SIZE {
-                let nx = x as f32 + ox;
-                let nz = z as f32 + oz;
-                let mut top =
-                    (9. + noise(nx / 19., nz / 19., seed) * 4. + noise(nx / 8., nz / 8., seed.wrapping_add(1)) * 1.8)
-                        .round() as i32;
-                // A broad, gently blended meadow connects the arrival and cottage. Abruptly
-                // flattening only their footprints would leave a wall across the player's view.
-                let meadow_distance = ((x as f32 - 35.).powi(2) + (z as f32 - 37.).powi(2)).sqrt();
-                let meadow = ((20. - meadow_distance) / 10.).clamp(0., 1.);
-                top = (top as f32 * (1. - meadow) + 10. * meadow).round() as i32;
-                let pond = ((x as f32 - 20.) / 8.).powi(2) + ((z as f32 - 29.) / 10.).powi(2);
-                let shore = pond < 1.35;
-                if pond < 0.78 {
-                    top = 6 + (pond * 2.) as i32;
-                } else if shore {
-                    top = 8;
-                }
-                // A clear arrival meadow and a level foundation for the starter cottage.
-                if (29..=36).contains(&x) && (40..=48).contains(&z) || (37..=44).contains(&x) && (27..=34).contains(&z)
-                {
-                    top = 10;
-                }
-                for y in 1..=top {
-                    let block = if y == top {
-                        if shore {
-                            SAND
-                        } else {
-                            GRASS
-                        }
-                    } else if y >= top - 2 {
-                        if shore {
-                            SAND
-                        } else {
-                            DIRT
-                        }
-                    } else {
-                        STONE
-                    };
-                    world.set(x, y, z, block);
-                }
-                if pond < 0.78 {
-                    for y in top + 1..=8 {
-                        world.set(x, y, z, WATER);
-                    }
-                }
-            }
-        }
-        // Fixed seeded candidates keep trees separated and preserve the arrival sight line.
-        let mut trees: Vec<(i32, i32)> = Vec::new();
-        for _ in 0..140 {
-            let x = 4 + rng.below((SIZE - 8) as usize) as i32;
-            let z = 4 + rng.below((SIZE - 8) as usize) as i32;
-            let top = world.height_at(x, z);
-            let protected = (27..=46).contains(&x) && (25..=50).contains(&z);
-            if protected
-                || world.get(x, top - 1, z) != GRASS
-                || trees.iter().any(|(tx, tz)| (x - tx).pow(2) + (z - tz).pow(2) < 36)
-            {
-                continue;
-            }
-            let trunk = 4 + rng.below(2) as i32;
-            for y in top..top + trunk {
-                world.set(x, y, z, WOOD);
-            }
-            for dy in -2i32..=1 {
-                let radius: i32 = if dy == 1 { 1 } else { 2 };
-                for dx in -radius..=radius {
-                    for dz in -radius..=radius {
-                        if dx.abs() == 2 && dz.abs() == 2 {
-                            continue;
-                        }
-                        let y = top + trunk - 1 + dy;
-                        if world.get(x + dx, y, z + dz) == AIR {
-                            world.set(x + dx, y, z + dz, LEAVES);
-                        }
-                    }
-                }
-            }
-            trees.push((x, z));
-            if trees.len() == 25 {
-                break;
-            }
-        }
-        world.cottage();
-        world
-    }
-
-    fn cottage(&mut self) {
-        for x in 38..=43 {
-            for z in 28..=33 {
-                self.set(x, 11, z, PLANKS);
-                for y in 12..=14 {
-                    let wall = x == 38 || x == 43 || z == 28 || z == 33;
-                    let corner = (x == 38 || x == 43) && (z == 28 || z == 33);
-                    let door = z == 33 && (x == 40 || x == 41) && y < 14;
-                    let window =
-                        y == 13 && ((x == 38 || x == 43) && (z == 30 || z == 31) || z == 28 && (x == 40 || x == 41));
-                    self.set(
-                        x,
-                        y,
-                        z,
-                        if !wall || door {
-                            AIR
-                        } else if corner {
-                            WOOD
-                        } else if window {
-                            GLASS
-                        } else {
-                            PLANKS
-                        },
-                    );
-                }
-            }
-        }
-        // Overhanging stepped roof and a friendly two-block porch.
-        for x in 37..=44 {
-            for z in 27..=34 {
-                self.set(x, 15, z, WOOD);
-            }
-        }
-        for x in 38..=43 {
-            for z in 28..=33 {
-                self.set(x, 16, z, PLANKS);
-            }
-        }
-        for x in 39..=42 {
-            for z in 29..=32 {
-                self.set(x, 17, z, PLANKS);
-            }
-        }
-        for x in 40..=41 {
-            for z in 34..=35 {
-                self.set(x, 11, z, PLANKS);
-            }
-        }
-    }
-
     /// Grid DDA: the returned normal identifies the adjoining cell for placement.
     pub fn raycast(&self, origin: V, direction: V, reach: f32) -> Option<Hit> {
-        if !origin.finite() || !direction.finite() || !reach.is_finite() || reach < 0. || direction.length() < 1e-6 {
+        if !origin.finite()
+            || !direction.finite()
+            || !reach.is_finite()
+            || reach < 0.
+            || origin.0.abs() > MAX_POSITION
+            || origin.1.abs() > MAX_POSITION
+            || origin.2.abs() > MAX_POSITION
+            || direction.length() < 1e-6
+        {
             return None;
         }
         let direction = direction.norm();
@@ -348,33 +179,8 @@ impl World {
                 }
             }
         }
-        for (min, max) in [
-            (V(-1., -8., -1.), V(0., 44., 65.)),
-            (V(64., -8., -1.), V(65., 44., 65.)),
-            (V(0., -8., -1.), V(64., 44., 0.)),
-            (V(0., -8., 64.), V(64., 44., 65.)),
-        ] {
-            colliders.push(Collider { min, max });
-        }
         colliders
     }
-}
-
-fn noise(x: f32, z: f32, seed: u64) -> f32 {
-    let ix = x.floor() as i32;
-    let iz = z.floor() as i32;
-    let fx = x - x.floor();
-    let fz = z - z.floor();
-    let sx = fx * fx * (3. - 2. * fx);
-    let sz = fz * fz * (3. - 2. * fz);
-    let value = |x: i32, z: i32| {
-        let mut rng =
-            Rng::new(seed ^ (x as u64).wrapping_mul(0x9e3779b97f4a7c15) ^ (z as u64).wrapping_mul(0x517cc1b727220a95));
-        rng.range(-1., 1.)
-    };
-    let a = value(ix, iz) * (1. - sx) + value(ix + 1, iz) * sx;
-    let b = value(ix, iz + 1) * (1. - sx) + value(ix + 1, iz + 1) * sx;
-    a * (1. - sz) + b * sz
 }
 
 fn block_collider(cell: [i32; 3]) -> Collider {
@@ -438,6 +244,7 @@ impl Sim {
             self.selected = slot;
         }
         self.player.look(input.look[0], input.look[1], 1., false);
+        self.recover_invalid_player();
         let axis = |n: f32| if n.is_finite() { n.clamp(-1., 1.) } else { 0. };
         let colliders = self.world.colliders(&self.player);
         self.player.update(
@@ -446,7 +253,7 @@ impl Sim {
                 right: axis(input.right),
                 sprint: input.sprint,
                 jump: input.jump,
-                ..Default::default()
+                crouch: input.crouch,
             },
             TICK,
             &colliders,
@@ -459,17 +266,7 @@ impl Sim {
             self.events.push(Event::Landed);
         }
         self.was_grounded = grounded;
-        if !self.player.position.finite()
-            || self.player.feet_height() < -4.
-            || self.player.position.0 < -2.
-            || self.player.position.0 > SIZE as f32 + 2.
-            || self.player.position.2 < -2.
-            || self.player.position.2 > SIZE as f32 + 2.
-        {
-            self.player = spawn(&self.world);
-            self.was_grounded = true;
-            self.events.push(Event::Respawned);
-        }
+        self.recover_invalid_player();
         let Some(hit) = self.target() else {
             return;
         };
@@ -516,6 +313,20 @@ impl Sim {
     fn changed(&mut self) {
         self.revision = self.revision.saturating_add(1);
         self.action_cooldown = ACTION_DELAY;
+    }
+
+    fn recover_invalid_player(&mut self) {
+        if !self.player.position.finite()
+            || !self.player.feet_height().is_finite()
+            || self.player.feet_height() < -4.
+            || self.player.feet_height() > HEIGHT as f32 + 5.
+            || self.player.position.0.abs() > MAX_POSITION
+            || self.player.position.2.abs() > MAX_POSITION
+        {
+            self.player = spawn(&self.world);
+            self.was_grounded = true;
+            self.events.push(Event::Respawned);
+        }
     }
 
     pub fn drain_events(&mut self) -> Vec<Event> {
@@ -574,18 +385,18 @@ impl Simulation for Sim {
             .u64(self.revision)
             .u32(self.action_cooldown as u32)
             .bool(self.was_grounded);
-        let mut world = StateHasher::new();
-        world.u64(self.world.seed).bytes(&self.world.data);
         vec![
             ("rules", rules.finish()),
             ("player", hash_player(&self.player.network_state())),
-            ("world", world.finish()),
+            ("world", self.world.checksum()),
         ]
     }
 }
 
 impl Snapshot for Sim {
     const KIND: &'static str = "bluecraft";
+    const VERSION: u32 = 2;
+    const MIGRATIONS: &'static [Migration] = &[Migration { from: 1, step: migrate_v1 }];
     const POLICY: SavePolicy = SavePolicy::Exact;
     type State = SimState;
     fn capture(&self) -> SimState {
@@ -602,13 +413,7 @@ impl Snapshot for Sim {
         }
     }
     fn restore(&mut self, state: SimState) -> Result<(), String> {
-        if state.world.data.len() != CELLS
-            || state.world.data.iter().any(|&block| block > BEDROCK)
-            || state.world.data[..(SIZE * SIZE) as usize].iter().any(|&block| block != BEDROCK)
-            || state.world.data[(SIZE * SIZE) as usize..].contains(&BEDROCK)
-        {
-            return Err("the save has invalid voxel dimensions, blocks or bedrock".into());
-        }
+        state.world.validate()?;
         if state.selected as usize >= PALETTE.len()
             || state.action_cooldown > ACTION_DELAY
             || state.revision != u64::from(state.mined) + u64::from(state.placed)
@@ -622,11 +427,11 @@ impl Snapshot for Sim {
             || ![p.yaw, p.pitch, p.feet, p.body_height, p.vertical_velocity].iter().all(|v| v.is_finite())
             || !(-1.5..=1.5).contains(&p.pitch)
             || p.yaw.abs() > 1_000_000.
-            || !(-2.0..=SIZE as f32 + 2.).contains(&p.position.0)
-            || !(-2.0..=SIZE as f32 + 2.).contains(&p.position.2)
+            || p.position.0.abs() > MAX_POSITION
+            || p.position.2.abs() > MAX_POSITION
             || !(-4.0..=HEIGHT as f32 + 5.).contains(&p.feet)
-            || (p.body_height - profile().height).abs() > 1e-5
-            || (p.position.1 - p.feet - profile().eye_height).abs() > 1e-4
+            || !(profile().crouched_height - 1e-5..=profile().height + 1e-5).contains(&p.body_height)
+            || (p.position.1 - p.feet - p.body_height + profile().height - profile().eye_height).abs() > 1e-4
             || p.velocity.length() > 30.
             || p.push.length() > 30.
             || p.vertical_velocity.abs() > 40.
@@ -653,4 +458,35 @@ impl Snapshot for Sim {
     fn save_tick(&self) -> u64 {
         self.tick
     }
+}
+
+/// Freeze the old finite world's complete footprint over the new procedural terrain. Even old air
+/// cells matter: omitting them could grow a tree through an existing house or player build.
+fn migrate_v1(mut payload: serde_json::Value) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct LegacyWorld {
+        seed: u64,
+        data: Vec<u8>,
+    }
+    let old: LegacyWorld =
+        serde_json::from_value(payload["world"].clone()).map_err(|error| format!("invalid legacy world: {error}"))?;
+    if old.data.len() != LEGACY_CELLS
+        || old.data.iter().any(|&block| block > BEDROCK)
+        || old.data[..(SIZE * SIZE) as usize].iter().any(|&block| block != BEDROCK)
+        || old.data[(SIZE * SIZE) as usize..].contains(&BEDROCK)
+    {
+        return Err("the legacy save has invalid dimensions, blocks or bedrock".into());
+    }
+    let mut world = World::new(old.seed);
+    for y in 1..HEIGHT {
+        for z in 0..SIZE {
+            for x in 0..SIZE {
+                let block = old.data[((y * SIZE + z) * SIZE + x) as usize];
+                world.set(x, y, z, block);
+            }
+        }
+    }
+    payload["world"] = serde_json::to_value(world).map_err(|error| error.to_string())?;
+    Ok(payload)
 }

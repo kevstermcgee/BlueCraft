@@ -4,14 +4,19 @@ Build a little world.
 
 [Download the Windows x64 installer](https://github.com/kevstermcgee/BlueCraft/releases/latest) · [Game guide and screenshots](https://kevstermcgee.github.io/BlueEngineGames/games/bluecraft/)
 
-BlueCraft is a small Minecraft-style creative voxel sandbox made with
-[BlueEngine](https://github.com/kevstermcgee/BlueEngine). Explore a first-person
-block landscape with a starter cottage, trees and a pond, then mine and build
-with nine unlimited materials. The finite world measures 64 × 64 × 32 blocks.
-There are no enemies, survival meters or required objectives: choose your own
-building project.
+BlueCraft is a Minecraft-style creative voxel sandbox made with
+[BlueEngine](https://github.com/kevstermcgee/BlueEngine). Explore a seeded landscape
+of meadows, trees and water, then mine and build with nine unlimited materials.
+Terrain streams in 16 × 16 block chunks as you explore in any horizontal direction;
+there are no walls at the old map edges. New worlds have no prebuilt house.
+The build height remains 32 blocks. There are no enemies, survival meters or
+required objectives: choose your own building project.
 
-![BlueCraft cottage and meadow](assets/wiki/cottage-meadow.png)
+An original 3 minute 12 second ambient piano-and-pad score accompanies building.
+Quiet material-specific effects distinguish earth, stone, sand, wood, leaves and
+glass. Music and effects can be muted separately in the pause menu; settings persist.
+
+![BlueCraft natural landscape](assets/wiki/open-landscape.png)
 
 Download the installer EXE from the latest release, run it, and launch BlueCraft
 from its installed shortcut. The release also includes checksums and verification
@@ -25,6 +30,7 @@ metadata. Linux is supported for development; the public release is for Windows 
 | Mouse | Look |
 | Space | Jump |
 | Shift | Sprint |
+| Ctrl / C | Crouch |
 | Left click | Break targeted block |
 | Right click | Place selected block |
 | Mouse wheel / 1–9 | Select material |
@@ -34,9 +40,35 @@ metadata. Linux is supported for development; the public release is for Windows 
 | Esc | Pause / resume |
 | F | Toggle fullscreen |
 
+A mapped Xbox-style or PlayStation-style controller also supports the complete
+building loop. Button names below use Xbox positions.
+
+| Controller | Action |
+| --- | --- |
+| Left / right stick | Move / look |
+| A | Jump |
+| Hold left stick click | Sprint |
+| Hold B | Crouch |
+| RT / LT | Mine / place |
+| LB / RB or D-pad left / right | Previous / next material |
+| X or right stick click | Pick targeted material |
+| Y or View | Toggle guide |
+| D-pad up / down | Save / load manual checkpoint |
+| Start | Pause / resume |
+| Stick / D-pad, A, B in menus | Navigate, select, back |
+
+The HUD switches to controller hints when the pad is used. A checkpoint load
+restores its saved world and position, replacing subsequent changes.
+
 The palette order is grass, dirt, stone, sand, oak log, leaves, oak planks, brick
 and glass. Aim within six metres to edit a block. Bedrock cannot be broken, and
-blocks cannot be placed outside the world or inside the player.
+blocks cannot be placed below bedrock, above the build height or inside the player.
+
+Existing version 0.1 saves load through a migration that preserves their original
+64 × 64 area, including any house and player builds. Procedural terrain continues
+beyond that area. Fresh worlds use the new landscape without a house. Explored
+terrain is regenerated from the seed; edited blocks persist when chunks leave the
+render/cache range and across saves.
 
 Normal play automatically resumes your previous world. Progress saves every
 15 seconds and on a clean exit. F5 and F9 use a separate manual checkpoint,

@@ -7,6 +7,11 @@
       "instructions": "On a native keyboard and mouse, exercise WASD movement, Space jump, Shift sprint, mouse look, wheel and 1-9 selection, middle-click picking, E help, Escape pause/resume and F fullscreen. Check cursor capture and focus changes. Record the OS and actual input devices."
     },
     {
+      "id": "gamepad",
+      "area": "controls",
+      "instructions": "On an actual native gamepad, use both sticks, A jump, held L3 sprint, held B crouch, RT mining, LT placing, LB/RB material selection, X/R3 picking, Y/View guide, D-pad up/down checkpoint save/load and Start pause. Verify menu navigation, focus loss and reconnect do not leak actions into play. Record controller model and OS; synthetic mappings do not certify the device."
+    },
+    {
       "id": "camera",
       "area": "camera",
       "instructions": "Confirm mouse right turns right and mouse up looks up. Walk and jump beside blocks; inspect camera height, collision, target outline and crosshair alignment. Check hotbar and help readability at the intended window sizes. Record the display and renderer."
@@ -19,7 +24,12 @@
     {
       "id": "audio",
       "area": "audio",
-      "instructions": "Listen to the game's action feedback on an actual audio output device. Exercise the sound settings and pause/resume; check that block interactions produce the intended feedback at a comfortable level and that muting works. Record the output device and what was heard; software captures or playback counters alone leave this check pending."
+      "instructions": "Listen on an actual output device to the quiet original piano-and-pad music over several minutes and its loop transition. Mine/place different materials, walk and land; confirm subtle material cues, comfortable mix, separate music/effects toggles and persistence across relaunch. Record hardware and what was heard; software metrics and playback counters leave hardware listening pending."
+    },
+    {
+      "id": "exploration",
+      "area": "gameplay",
+      "instructions": "Start a fresh world and confirm there is no prebuilt house. Explore beyond x/z 0 and 64 in both directions; confirm continuous terrain, trees, rendering and collision. Edit blocks across a chunk border, travel away, return, save and restart; verify builds persist. Load an old checkpoint and confirm its original blocks survive."
     }
   ]
 }

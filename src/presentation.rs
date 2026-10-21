@@ -1,15 +1,17 @@
 //! Client-only voxel drawing. The simulation owns every editable block.
 use bluecraft::{
-    block_name, Sim, World, AIR, BEDROCK, BRICK, DIRT, GLASS, GRASS, HEIGHT, LEAVES, PALETTE, PLANKS, SAND, SIZE,
+    block_name, Sim, World, AIR, BEDROCK, BRICK, CHUNK_SIZE, DIRT, GLASS, GRASS, HEIGHT, LEAVES, PALETTE, PLANKS, SAND,
     STONE, WATER, WOOD,
 };
 use macroquad::miniquad::{Comparison, PipelineParams, UniformDesc, UniformType};
 use macroquad::prelude::*;
+use std::collections::BTreeMap;
 use vesper3d::viewer::kit::{hud, View};
 
 const TILE: u32 = 16;
 const ATLAS: u32 = 64;
 const FACE_LIMIT: usize = 780;
+const VIEW_CHUNKS: i32 = 4;
 const SKY: Color = Color::new(0.66, 0.82, 0.92, 1.);
 const INK: Color = Color::new(0.055, 0.10, 0.12, 0.86);
 const CREAM: Color = Color::new(0.96, 0.98, 0.94, 1.);
@@ -56,7 +58,7 @@ void main() {
     vec4 texel = texture2D(Texture, uv);
     if (texel.a < 0.1) discard;
     vec3 color = texel.rgb * tint.rgb;
-    float distanceFog = smoothstep(30.0, 105.0, length(world - Eye)) * 0.86;
+    float distanceFog = smoothstep(40.0, 64.0, length(world.xz - Eye.xz));
     gl_FragColor = vec4(mix(color, Fog, distanceFog), 1.0);
 }
 "#;
@@ -64,9 +66,18 @@ void main() {
 pub struct Presentation {
     atlas: Texture2D,
     material: Material,
-    meshes: Vec<Mesh>,
+    chunks: BTreeMap<(i32, i32), ChunkMesh>,
     clouds: Vec<Mesh>,
-    revision: Option<u64>,
+    cloud_origin: (i32, i32),
+}
+
+struct ChunkMesh {
+    revisions: [u64; 9],
+    meshes: Vec<Mesh>,
+}
+
+fn chunk_revisions(world: &World, cx: i32, cz: i32) -> [u64; 9] {
+    std::array::from_fn(|i| world.chunk_revision(cx + i as i32 % 3 - 1, cz + i as i32 / 3 - 1))
 }
 
 impl Presentation {
@@ -88,18 +99,40 @@ impl Presentation {
             },
         )
         .expect("BlueCraft's voxel material must compile");
-        let clouds = cloud_meshes(&atlas);
-        Self { atlas, material, meshes: Vec::new(), clouds, revision: None }
+        let clouds = cloud_meshes(&atlas, (0, 0));
+        Self { atlas, material, chunks: BTreeMap::new(), clouds, cloud_origin: (0, 0) }
     }
 
     pub fn invalidate(&mut self) {
-        self.revision = None;
+        self.chunks.clear();
     }
 
-    pub fn draw(&mut self, sim: &Sim, view: &View, _dt: f32, help: bool, notice: Option<&str>, paused: bool) {
-        if self.revision != Some(sim.revision) {
-            self.meshes = world_meshes(&sim.world, &self.atlas);
-            self.revision = Some(sim.revision);
+    pub fn draw(&mut self, sim: &Sim, view: &View, controller: bool, help: bool, notice: Option<&str>, paused: bool) {
+        let cx = (sim.player.position.0.floor() as i32).div_euclid(CHUNK_SIZE);
+        let cz = (sim.player.position.2.floor() as i32).div_euclid(CHUNK_SIZE);
+        self.chunks.retain(|&(x, z), _| (x - cx).abs() <= VIEW_CHUNKS && (z - cz).abs() <= VIEW_CHUNKS);
+        let mut pending = Vec::new();
+        for z in cz - VIEW_CHUNKS..=cz + VIEW_CHUNKS {
+            for x in cx - VIEW_CHUNKS..=cx + VIEW_CHUNKS {
+                let revisions = chunk_revisions(&sim.world, x, z);
+                let cached = self.chunks.get(&(x, z));
+                if cached.is_none_or(|chunk| chunk.revisions != revisions) {
+                    // Edits appear immediately; otherwise stream the closest ground first.
+                    pending.push((cached.is_none(), (x - cx).pow(2) + (z - cz).pow(2), x, z, revisions));
+                }
+            }
+        }
+        pending.sort_unstable_by_key(|p| (p.0, p.1));
+        for (_, _, x, z, revisions) in pending.into_iter().take(2) {
+            self.chunks.insert((x, z), ChunkMesh { revisions, meshes: chunk_meshes(&sim.world, &self.atlas, x, z) });
+        }
+        let cloud_origin = (
+            (sim.player.position.0.floor() as i32).div_euclid(24),
+            (sim.player.position.2.floor() as i32).div_euclid(29),
+        );
+        if self.cloud_origin != cloud_origin {
+            self.clouds = cloud_meshes(&self.atlas, cloud_origin);
+            self.cloud_origin = cloud_origin;
         }
         set_default_camera();
         draw_sky(view);
@@ -110,8 +143,10 @@ impl Presentation {
         for mesh in &self.clouds {
             draw_mesh(mesh);
         }
-        for mesh in &self.meshes {
-            draw_mesh(mesh);
+        for chunk in self.chunks.values() {
+            for mesh in &chunk.meshes {
+                draw_mesh(mesh);
+            }
         }
         gl_use_default_material();
         if !paused {
@@ -120,10 +155,10 @@ impl Presentation {
             }
         }
         set_default_camera();
-        self.hud(sim, view, help && !paused, notice, paused);
+        self.hud(sim, view, controller, help && !paused, notice, paused);
     }
 
-    fn hud(&self, sim: &Sim, view: &View, help: bool, notice: Option<&str>, paused: bool) {
+    fn hud(&self, sim: &Sim, view: &View, controller: bool, help: bool, notice: Option<&str>, paused: bool) {
         let s = hud::ui_scale();
         let w = screen_width();
         let h = screen_height();
@@ -176,7 +211,11 @@ impl Presentation {
         }
         hud::text_centered(block_name(PALETTE[selected]), w * 0.5, bar_y - 20. * s, 20. * s, CREAM);
         hud::text_centered(
-            "LMB  Mine     RMB  Place     1-9 / Scroll  Blocks     E  Guide     Esc  Menu",
+            if controller {
+                "RT  Mine     LT  Place     LB / RB  Blocks     Y  Guide     Start  Menu"
+            } else {
+                "LMB  Mine     RMB  Place     1-9 / Scroll  Blocks     E  Guide     Esc  Menu"
+            },
             w * 0.5,
             h - 12. * s,
             12. * s,
@@ -202,26 +241,41 @@ impl Presentation {
         if help {
             let x = left;
             let y = 103. * s;
-            let pw = 294. * s;
-            panel(x, y, pw, 255. * s, s);
-            draw_rectangle(x, y, 3. * s, 255. * s, MINT);
+            let pw = 320. * s;
+            panel(x, y, pw, 277. * s, s);
+            draw_rectangle(x, y, 3. * s, 277. * s, MINT);
             hud::text_outlined("MAKE SOMETHING YOURS", x + 18. * s, y + 30. * s, 16. * s, MINT);
-            let rows = [
-                ("W A S D", "Move"),
-                ("MOUSE", "Look around"),
-                ("SPACE", "Jump"),
-                ("SHIFT", "Sprint"),
-                ("LEFT / RIGHT CLICK", "Mine / place"),
-                ("MIDDLE CLICK", "Pick a block"),
-                ("1-9 / SCROLL", "Choose material"),
-                ("F5 / F9", "Save / load world"),
-            ];
+            let rows = if controller {
+                [
+                    ("LEFT STICK", "Move"),
+                    ("RIGHT STICK", "Look around"),
+                    ("A", "Jump"),
+                    ("LEFT STICK CLICK", "Sprint"),
+                    ("B (HOLD)", "Crouch"),
+                    ("RT / LT", "Mine / place"),
+                    ("X / RIGHT STICK CLICK", "Pick a block"),
+                    ("LB / RB", "Choose material"),
+                    ("D-PAD UP / DOWN", "Save / load checkpoint"),
+                ]
+            } else {
+                [
+                    ("W A S D", "Move"),
+                    ("MOUSE", "Look around"),
+                    ("SPACE", "Jump"),
+                    ("SHIFT", "Sprint"),
+                    ("CTRL / C", "Crouch"),
+                    ("LEFT / RIGHT CLICK", "Mine / place"),
+                    ("MIDDLE CLICK", "Pick a block"),
+                    ("1-9 / SCROLL", "Choose material"),
+                    ("F5 / F9", "Save / load world"),
+                ]
+            };
             for (i, (key, action)) in rows.iter().enumerate() {
                 let row = y + (58. + i as f32 * 22.) * s;
                 hud::text_outlined(key, x + 18. * s, row, 11. * s, Color::new(0.68, 0.80, 0.81, 1.));
                 hud::text_right(action, x + pw - 18. * s, row, 13. * s, CREAM);
             }
-            hud::text_outlined("Unlimited blocks. Endless possibilities.", x + 18. * s, y + 239. * s, 11. * s, MINT);
+            hud::text_outlined("Explore freely. Build something yours.", x + 18. * s, y + 261. * s, 11. * s, MINT);
         }
     }
 }
@@ -380,12 +434,12 @@ fn corner_ao(world: &World, cell: [i32; 3], face_index: usize, corner: [i32; 3])
     }
 }
 
-fn world_meshes(world: &World, atlas: &Texture2D) -> Vec<Mesh> {
+fn chunk_meshes(world: &World, atlas: &Texture2D, cx: i32, cz: i32) -> Vec<Mesh> {
     let mut meshes = Vec::new();
     let mut mesh = blank_mesh(atlas);
     for y in 0..HEIGHT {
-        for z in 0..SIZE {
-            for x in 0..SIZE {
+        for z in cz * CHUNK_SIZE..(cz + 1) * CHUNK_SIZE {
+            for x in cx * CHUNK_SIZE..(cx + 1) * CHUNK_SIZE {
                 let block = world.get(x, y, z);
                 if block == AIR {
                     continue;
@@ -415,12 +469,14 @@ fn world_meshes(world: &World, atlas: &Texture2D) -> Vec<Mesh> {
     meshes
 }
 
-fn cloud_meshes(atlas: &Texture2D) -> Vec<Mesh> {
+fn cloud_meshes(atlas: &Texture2D, origin: (i32, i32)) -> Vec<Mesh> {
     let mut mesh = blank_mesh(atlas);
-    for z in 0..4 {
-        for x in 0..5 {
-            let shift = ((x * 13 + z * 7) % 9) as f32;
-            let p = vec3(x as f32 * 24. - 24. + shift, 39. + (z % 2) as f32 * 3., z as f32 * 29. - 25.);
+    for z in -3i32..=4 {
+        for x in -3i32..=4 {
+            let gx = origin.0 + x;
+            let gz = origin.1 + z;
+            let shift = (hash(gx as u32, gz as u32, 13) % 9) as f32;
+            let p = vec3(gx as f32 * 24. + shift, 39. + gz.rem_euclid(2) as f32 * 3., gz as f32 * 29.);
             for (offset, size) in [(Vec3::ZERO, vec3(12., 1.6, 5.)), (vec3(3., 0.3, -3.), vec3(7., 1.3, 10.))] {
                 for (f, corners) in CORNERS.iter().enumerate() {
                     let points = corners.map(|c| p + offset + vec3(c[0] as f32, c[1] as f32, c[2] as f32) * size);

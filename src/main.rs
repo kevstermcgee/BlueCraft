@@ -1,5 +1,7 @@
 //! BlueCraft's native client. Fixed ticks, devices, saves and capture use BlueEngine.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod audio;
+mod controls;
 mod platform;
 mod presentation;
 
@@ -7,21 +9,21 @@ use bluecraft::{Event, Input, Sim};
 use macroquad::prelude::*;
 use vesper3d::viewer::{
     devkit::{
-        beside_exe, flag_value, has_flag, parse_size, snapshot, synth, Lifecycle, MouseLook, Settings, Simulation,
-        AUTO_SLOT,
+        beside_exe, flag_value, has_flag, parse_size, snapshot, Lifecycle, MouseLook, Settings, Simulation, AUTO_SLOT,
     },
     game_client::{self, AudioMenu, GameShell},
     game_input::{mouse_pixels, ClientInput},
     identity::Identity,
-    kit::{self, Rendered, SoundBank, View},
+    kit::{self, SoundBank, View},
 };
 
 const IDENTITY: &str = include_str!("../assets/identity.json");
-const CUES: [&str; 11] = ["fwd", "back", "left", "right", "jump", "look", "mine", "place", "pick", "slot", "sprint"];
-const SOUNDS: [synth::Preset; 5] =
-    [synth::Preset::Thump, synth::Preset::Pickup, synth::Preset::Jump, synth::Preset::Land, synth::Preset::Footstep];
+const CUES: [&str; 12] =
+    ["fwd", "back", "left", "right", "jump", "look", "mine", "place", "pick", "slot", "sprint", "crouch"];
 const JUMP: u32 = 1;
 const PICK: u32 = 2;
+const MINE_EDGE: u32 = 4;
+const PLACE_EDGE: u32 = 8;
 const SLOT_START: u32 = 8;
 
 fn identity() -> Identity {
@@ -54,6 +56,7 @@ struct Held {
     forward: f32,
     right: f32,
     sprint: bool,
+    crouch: bool,
     mine: bool,
     place: bool,
 }
@@ -68,16 +71,6 @@ struct DeviceEvidence {
     selection_presses: u64,
     successful_saves: u64,
     successful_loads: u64,
-}
-
-fn audio() -> Rendered {
-    Rendered {
-        sfx: SOUNDS
-            .iter()
-            .map(|p| (0..p.variants()).map(|v| synth::wav_bytes(&synth::render(*p, v, 7), synth::RATE)).collect())
-            .collect(),
-        stems: Vec::new(),
-    }
 }
 
 #[macroquad::main(window)]
@@ -108,12 +101,14 @@ async fn main() {
     life.load_flag_or_exit(&mut sim);
     let settings_path = beside_exe("settings.json");
     let mut settings = Settings::load(&settings_path);
-    let mut sounds = SoundBank::start(life.options.silent(), settings.sfx_level(), settings.music_level(), audio).await;
+    let mut sounds =
+        SoundBank::start(life.options.silent(), settings.sfx_level(), settings.music_level(), audio::render).await;
     let mut shell = GameShell::new();
     let mut input = ClientInput::new();
     let mouse = MouseLook::default();
     let mut art = presentation::Presentation::new();
     let mut help = false;
+    let mut controller_hints = false;
     let mut auto_time = 0.;
     let mut footsteps = 0.;
     let mut evidence = DeviceEvidence::default();
@@ -134,6 +129,12 @@ async fn main() {
         input.begin_frame_with_keyboard(&mut shell, true, unattended || platform::focused(), platform::keyboard());
         let dt = life.begin_frame(input.frame_seconds());
         sounds.poll().await;
+        sounds.start_music();
+        sounds.update_music(dt, &[if shell.paused { 0.35 } else { 1.0 }]);
+        let pad = controls::gamepad_actions(input.gamepad(), sim.selected, shell.accepting_input());
+        if !input.gamepad().neutral() {
+            controller_hints = true;
+        }
         notice_left -= dt;
         if notice_left <= 0. {
             notice = None;
@@ -149,6 +150,7 @@ async fn main() {
                     forward: script.axis("fwd", "back"),
                     right: script.axis("right", "left"),
                     sprint: script.held("sprint"),
+                    crouch: script.held("crouch"),
                     mine: script.held("mine"),
                     place: script.held("place"),
                 },
@@ -159,33 +161,41 @@ async fn main() {
             let movement = input.movement(&shell);
             let px = if shell.playing() { mouse_pixels() } else { [0.; 2] };
             let mlook = mouse.look(px[0], px[1]);
+            if px != [0.; 2] {
+                controller_hints = false;
+            }
             let stick = input.stick_look(&shell, dt);
             let look = [mlook[0] + stick[0], mlook[1] + stick[1]];
-            let mut edges =
-                (u32::from(movement.jump) * JUMP) | (u32::from(is_mouse_button_pressed(MouseButton::Middle)) * PICK);
-            let mut selected = None;
+            let mut edges = (u32::from(movement.jump) * JUMP)
+                | (u32::from(is_mouse_button_pressed(MouseButton::Middle) || pad.pick) * PICK);
+            edges |= u32::from(is_mouse_button_pressed(MouseButton::Left) || pad.mine_pressed) * MINE_EDGE;
+            edges |= u32::from(is_mouse_button_pressed(MouseButton::Right) || pad.place_pressed) * PLACE_EDGE;
+            let mut selected = pad.slot;
             for (slot, key) in keys.iter().enumerate() {
                 if input.pressed(*key) {
                     selected = Some(slot as u8);
+                    controller_hints = false;
                 }
             }
             let wheel = mouse_wheel().1;
             if wheel.abs() > 0.01 {
+                controller_hints = false;
                 selected = Some((i32::from(sim.selected) - wheel.signum() as i32).rem_euclid(9) as u8);
             }
             if let Some(slot) = selected {
                 edges |= 1 << (SLOT_START + u32::from(slot));
                 evidence.selection_presses += 1;
             }
-            if input.pressed(KeyCode::E) {
+            if input.pressed(KeyCode::E) || pad.guide {
                 help = !help;
             }
             let held = Held {
                 forward: movement.forward,
                 right: movement.right,
                 sprint: movement.sprint,
-                mine: is_mouse_button_down(MouseButton::Left),
-                place: is_mouse_button_down(MouseButton::Right),
+                crouch: movement.crouch || pad.crouch,
+                mine: is_mouse_button_down(MouseButton::Left) || pad.mine,
+                place: is_mouse_button_down(MouseButton::Right) || pad.place,
             };
             evidence.movement_frames += u64::from(held.forward != 0. || held.right != 0.);
             evidence.look_frames += u64::from(look != [0.; 2]);
@@ -200,7 +210,8 @@ async fn main() {
             life.reset_input();
         }
         life.feed(held, edges, look);
-        let (save, load) = life.save_load_requested(input.pressed(KeyCode::F5), input.pressed(KeyCode::F9));
+        let (save, load) =
+            life.save_load_requested(input.pressed(KeyCode::F5) || pad.save, input.pressed(KeyCode::F9) || pad.load);
         if save {
             let result = life.quick_save(&sim, "BlueCraft world");
             evidence.successful_saves += u64::from(result.ok);
@@ -224,10 +235,11 @@ async fn main() {
                 forward: tick.held.forward,
                 right: tick.held.right,
                 sprint: tick.held.sprint,
+                crouch: tick.held.crouch,
                 look: tick.look,
                 jump: tick.pressed(JUMP),
-                mine: tick.held.mine,
-                place: tick.held.place,
+                mine: tick.held.mine || tick.pressed(MINE_EDGE),
+                place: tick.held.place || tick.pressed(PLACE_EDGE),
                 pick: tick.pressed(PICK),
                 slot,
             });
@@ -235,20 +247,34 @@ async fn main() {
                 let delta = sim.player.position - before;
                 footsteps += (delta.0 * delta.0 + delta.2 * delta.2).sqrt();
                 if footsteps > 2.2 {
-                    sounds.play(4, 0.20);
+                    let p = sim.player.position;
+                    let surface = sim.world.get(
+                        p.0.floor() as i32,
+                        sim.player.feet_height().floor() as i32 - 1,
+                        p.2.floor() as i32,
+                    );
+                    let (cue, volume) = audio::footstep(surface);
+                    sounds.play(cue, volume);
                     footsteps = 0.;
                 }
             }
             for event in sim.drain_events() {
-                match event {
-                    Event::Mined { .. } => sounds.play(0, 0.5),
-                    Event::Placed { .. } => sounds.play(1, 0.45),
-                    Event::Jumped => sounds.play(2, 0.22),
-                    Event::Landed => sounds.play(3, 0.35),
-                    Event::Respawned => {
-                        notice = Some("Back on solid ground.".into());
-                        notice_left = 3.;
-                    }
+                let sound = if event == Event::Landed {
+                    let p = sim.player.position;
+                    Some(audio::landing(sim.world.get(
+                        p.0.floor() as i32,
+                        sim.player.feet_height().floor() as i32 - 1,
+                        p.2.floor() as i32,
+                    )))
+                } else {
+                    audio::event_sound(&event)
+                };
+                if let Some((cue, volume)) = sound {
+                    sounds.play(cue, volume);
+                }
+                if event == Event::Respawned {
+                    notice = Some("Back on solid ground.".into());
+                    notice_left = 3.;
                 }
             }
         }
@@ -279,13 +305,38 @@ async fn main() {
             (sim.player.pitch - pending[1]).clamp(-1.5, 1.5),
         );
         view.fov = 70f32.to_radians();
-        art.draw(&sim, &view, dt, help, notice.as_deref(), shell.paused);
-        let controls: Vec<&str> = identity.controls.split(", ").collect();
+        art.draw(&sim, &view, controller_hints, help, notice.as_deref(), shell.paused);
+        let controls = if controller_hints {
+            [
+                "Left / right stick: move / look",
+                "A: jump   L3: sprint   B: crouch",
+                "RT: mine   LT: place   X / R3: pick",
+                "LB / RB: previous / next material",
+                "D-pad up / down: save / load checkpoint",
+                "Y / View: guide   Start: pause",
+                "Menus: stick / D-pad, A select, B back",
+            ]
+        } else {
+            [
+                "WASD: move   Mouse: look",
+                "Space: jump   Shift: sprint",
+                "Ctrl / C: crouch",
+                "Left / right click: mine / place",
+                "Wheel / 1-9: material   Middle click: pick",
+                "F5 / F9: save / load checkpoint",
+                "E: guide   Esc: pause   F: fullscreen",
+            ]
+        };
         let outcome = shell.local_menu_with_audio(
             &identity.title,
             &controls,
-            AudioMenu { music_on: false, sfx_on: settings.sfx_on, has_music: false },
+            AudioMenu { music_on: settings.music_on, sfx_on: settings.sfx_on, has_music: true },
         );
+        if outcome.toggle_music {
+            settings.toggle_music();
+            sounds.music_volume = settings.music_level();
+            settings.store(&settings_path);
+        }
         if outcome.toggle_sfx {
             settings.toggle_sfx();
             sounds.sfx_volume = settings.sfx_level();
@@ -310,7 +361,7 @@ async fn main() {
     if let Some(report) = life.report() {
         println!("{report}");
     }
-    let report = serde_json::json!({"game":"bluecraft", "engine": "e7ba8467fe9043527579fc8fac3de7818dddea3a",
+    let report = serde_json::json!({"game":"bluecraft", "engine": "1a5b696ee653179c6898b1c4195cb1d3d2715d6e",
         "tick":sim.tick,"mined":sim.mined,"placed":sim.placed,"selected":sim.selected,
         "position":[sim.player.position.0,sim.player.position.1,sim.player.position.2],
         "yaw":sim.player.yaw,"pitch":sim.player.pitch,
@@ -324,7 +375,7 @@ async fn main() {
     if life.options.audible {
         let status = sounds.status();
         println!("audio: {status:?}");
-        if let Err(error) = status.verify_playback(SOUNDS.iter().map(|p| p.variants()).sum(), 0) {
+        if let Err(error) = status.verify_playback(audio::LOADED_EFFECTS, audio::MUSIC_STEMS) {
             eprintln!("{error}");
             std::process::exit(1);
         }

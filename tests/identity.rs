@@ -10,7 +10,7 @@ fn root(file: &str) -> std::path::PathBuf {
 #[test]
 fn identity_icon_and_game_document_agree() {
     let text = std::fs::read_to_string(root("assets/identity.json")).expect("assets/identity.json");
-    let identity: Identity = serde_json::from_str(&text).expect("assets/identity.json is valid JSON");
+    let identity = Identity::parse(&text).expect("assets/identity.json is valid game identity");
     assert!(!identity.title.trim().is_empty(), "give the game a title in assets/identity.json");
     if root("game.json").is_file() {
         let game = GameDocument::load(&root("game.json")).unwrap();
